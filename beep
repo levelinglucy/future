@@ -1,0 +1,101 @@
+# quantum_vectors_plus.py
+import numpy as np
+
+def dagger(A): return np.conjugate(A.T)
+
+# --------- State distances ----------
+def fidelity(rho, sigma):
+    # F(ρ,σ) = (Tr sqrt(sqrt(ρ) σ sqrt(ρ)))^2
+    w, V = np.linalg.eigh(rho)
+    w = np.clip(w, 0, None)
+    sqrt_rho = (V * np.sqrt(w)[None,:]) @ dagger(V)
+    M = sqrt_rho @ sigma @ sqrt_rho
+    wm, Vm = np.linalg.eigh((M + dagger(M))/2)
+    wm = np.clip(wm, 0, None)
+    return float(np.square(np.sum(np.sqrt(wm))).real)
+
+def trace_distance(rho, sigma):
+    # 0.5 * ||ρ-σ||_1
+    X = rho - sigma
+    w, _ = np.linalg.eigh((X + dagger(X))/2)
+    return 0.5 * float(np.sum(np.abs(w)))
+
+def rel_entropy(rho, sigma, eps=1e-12):
+    # S(ρ||σ) = Tr[ρ (log ρ - log σ)]
+    wr, Vr = np.linalg.eigh((rho + dagger(rho))/2)
+    wr = np.clip(wr, eps, None)
+    log_r = (Vr * np.log(wr)[None,:]) @ dagger(Vr)
+    ws, Vs = np.linalg.eigh((sigma + dagger(sigma))/2)
+    ws = np.clip(ws, eps, None)
+    log_s = (Vs * np.log(ws)[None,:]) @ dagger(Vs)
+    return float(np.real(np.trace(rho @ (log_r - log_s))))
+
+# --------- Partial trace ----------
+def partial_trace(rho, dims, keep):
+    # dims = (dA, dB, ...), keep = tuple of indices to keep (e.g., (0,))
+    # rho is (D,D) with D = prod(dims)
+    D = np.prod(dims)
+    assert rho.shape == (D, D)
+    n = len(dims)
+    # reshape to 2n indices and trace over the complement
+    rho_t = rho.reshape(*dims, *dims)
+    axes = tuple(i for i in range(n) if i not in keep)
+    for ax in sorted(axes, reverse=True):
+        rho_t = np.trace(rho_t, axis1=ax, axis2=ax + n)
+    d_keep = int(np.prod([dims[i] for i in keep]))
+    return rho_t.reshape(d_keep, d_keep)
+
+# --------- Kraus / Choi ----------
+def kraus_compose(kset2, kset1):
+    # Φ = K2 ∘ K1  -> Kraus set is { A_i B_j }
+    out = []
+    for A in kset2:
+        for B in kset1:
+            out.append(A @ B)
+    return out
+
+def kraus_to_choi(kset, d):
+    # J = sum_i (K_i ⊗ I) |Φ⟩⟨Φ| (K_i† ⊗ I), |Φ⟩ = sum_k |k⟩⊗|k⟩ / √d
+    # Efficient form: J = sum_i (K_i ⊗ I) S (K_i† ⊗ I), with S the unnormalized swap projector
+    # Here we build directly: J_{(a,b),(c,d)} = sum_i K_i[a,c] K_i*[b,d]
+    J = np.zeros((d*d, d*d), dtype=np.complex128)
+    for K in kset:
+        J += np.kron(K, np.eye(d)) @ np.kron(np.eye(d), np.conjugate(K))  # equivalent index form
+    return J
+
+def choi_to_kraus(J, d, tol=1e-12):
+    # Spectral decomposition of Choi: J = sum_r λ_r |A_r⟩⟨A_r|
+    # Kraus K_r = sqrt(λ_r) * unvec(A_r) where unvec maps d^2 -> (d,d)
+    w, V = np.linalg.eigh((J + dagger(J))/2)
+    kset = []
+    for lam, vec in zip(w, V.T):
+        if lam > tol:
+            A = vec.reshape(d, d).T  # unvec convention
+            kset.append(np.sqrt(lam) * A)
+    return kset
+
+# --------- Time evolution ----------
+def magnus2_step(Ht, t, dt):
+    """
+    2nd-order Magnus for time-dependent H(t).
+    Ht: callable(t)->Hermitian; returns (N,N) complex128
+    """
+    H0 = (Ht(t) + dagger(Ht(t))) / 2
+    H1 = (Ht(t + dt/2) + dagger(Ht(t + dt/2))) / 2
+    Omega = -1j * dt * H1
+    # exp(Omega)
+    w, V = np.linalg.eigh((Omega + dagger(Omega))/2)
+    U = (V * np.exp(w)[None,:]) @ dagger(V)
+    return U
+
+def trotter_step(H_parts, dt):
+    """
+    First-order Suzuki–Trotter: exp(dt sum H_i) ≈ Π exp(dt H_i)
+    H_parts: list of Hermitian matrices
+    """
+    U = np.eye(H_parts[0].shape[0], dtype=np.complex128)
+    for H in H_parts:
+        Hw = (H + dagger(H))/2
+        w, V = np.linalg.eigh(Hw)
+        U = ((V * np.exp(-1j * w * dt)[None,:]) @ dagger(V)) @ U
+    return U
