@@ -1,0 +1,40 @@
+# anchor_kit.py
+import json, hashlib, base64, time
+from typing import Any
+
+def canonical(obj: Any) -> bytes:
+    # RFC-8259-ish canonical JSON (sorted keys, no spaces)
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+def sha256_hex(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+def make_anchor(anchor_id: str, payload_bytes: bytes, beacons: dict, parent_hash_hex: str|None=None):
+    payload_hash = sha256_hex(payload_bytes)
+    anchor = {
+        "schema": "elythia.anchor.v1",
+        "anchor_id": anchor_id,
+        "issued_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "beacons": beacons,
+        "commitment": {
+            "algo": "sha256",
+            "hash_of_payload_hex": payload_hash,
+            "merkle_parent_hex": parent_hash_hex or ""
+        },
+        "channels": [],
+        "forward_instructions": {
+            "handshake_tag": "Elythia-Anchor",
+            "discovery_query": f"schema:elythia.anchor.v1 AND anchor_id:{anchor_id.rsplit('/',1)[0]}/*",
+            "reply_channel_hint": "Set merkle_parent_hex to this anchor's hash"
+        },
+        "notes": ""
+    }
+    anchor_hash = sha256_hex(canonical(anchor))
+    return anchor, anchor_hash
+
+def verify_anchor(anchor: dict, payload_bytes: bytes):
+    ok_schema = anchor.get("schema") == "elythia.anchor.v1"
+    recomputed_payload = sha256_hex(payload_bytes)
+    ok_commit = (anchor["commitment"]["hash_of_payload_hex"] == recomputed_payload)
+    anchor_hash = sha256_hex(canonical(anchor))
+    return {"ok_schema": ok_schema, "ok_commit": ok_commit, "anchor_hash": anchor_hash}
