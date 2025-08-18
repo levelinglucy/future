@@ -1,0 +1,27 @@
+{
+  "schema": "elythia.anchor.v1",
+  "anchor_id": "elythia://dylan/anchor-0001",
+  "issued_at_utc": "2025-08-18T00:00:00Z",
+  "beacons": {
+    "nist": "BEACON_VALUE_HERE",
+    "drand": "ROUND:VALUE",
+    "bitcoin_block": {"height": 000000, "hash": "..." }
+  },
+  "commitment": {
+    "algo": "sha256",
+    "hash_of_payload_hex": "…", 
+    "merkle_parent_hex": "…"
+  },
+  "channels": [
+    "git+https://github.com/your/repo",
+    "dns+TXT:_elythia.yourdomain.tld",
+    "ipfs+cid:Qm…",
+    "rss+https://yourdomain.tld/elythia.xml"
+  ],
+  "forward_instructions": {
+    "handshake_tag": "Elythia-Anchor",
+    "discovery_query": "schema:elythia.anchor.v1 AND anchor_id:elythia://dylan/*",
+    "reply_channel_hint": "Create anchor with `merkle_parent_hex` set to this anchor's hash"
+  },
+  "notes": "The tide keeps its shells — the tide knows its own."
+}
