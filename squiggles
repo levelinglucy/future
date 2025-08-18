@@ -1,0 +1,364 @@
+# vector_safety_rails.py
+# Safety rails for temporal/quantum vector calculus — study-first design.
+# Default mode = OFF (no enforcement). ADVISORY logs invariants & violations.
+# ENFORCE applies gentle corrections (Hermitian sym, renorms, PSD-clip, etc).
+
+from dataclasses import dataclass
+from enum import Enum
+import math
+import numpy as np
+
+# Optional: use torch if present (better autograd / performance)
+try:
+    import torch
+    _HAS_TORCH = True
+except Exception:
+    _HAS_TORCH = False
+
+
+class RailMode(Enum):
+    OFF = "off"          # no checks
+    ADVISORY = "advisory" # compute & return a report; do not modify results
+    ENFORCE = "enforce"   # apply gentle corrections; also return a report
+
+
+@dataclass
+class RailConfig:
+    dtype_real: str = "float64"
+    dtype_complex: str = "complex128"
+    eps: float = 1e-12
+    kappa_max: float = 1e12             # condition number ceiling before routing
+    step_tol: float = 1e-6              # integrator error-ish tolerance
+    trace_tol: float = 1e-9
+    projector_tol: float = 1e-8
+    lorentz_tol: float = 1e-8
+    min_eig_clip: float = 0.0           # PSD floor in ENFORCE
+    decohere_floor: float = 0.0         # off-diagonals < this set to 0 (if >0, ENFORCE)
+    deterministic: bool = False
+    backend: str = "auto"               # "auto" | "numpy" | "torch"
+
+
+def _as_backend_array(x, complex_dtype=False, use_torch=False, cfg: RailConfig = None):
+    if use_torch:
+        t = torch.tensor(x) if not torch.is_tensor(x) else x
+        if complex_dtype:
+            t = t.to(torch.complex128)
+        else:
+            t = t.to(torch.float64)
+        return t
+    else:
+        a = np.asarray(x)
+        if complex_dtype:
+            return a.astype(np.complex128, copy=False)
+        else:
+            return a.astype(np.float64, copy=False)
+
+
+def _dagger(A, use_torch):
+    if use_torch:
+        return A.conj().transpose(-1, -2)
+    else:
+        return np.conjugate(A.swapaxes(-1, -2))
+
+
+def _norm2(x, use_torch):
+    if use_torch:
+        return torch.linalg.vector_norm(x)
+    else:
+        return float(np.linalg.norm(x))
+
+
+def _nan_to_num(x, use_torch, cfg: RailConfig):
+    if use_torch:
+        return torch.nan_to_num(x, nan=0.0, posinf=1e38, neginf=-1e38)
+    else:
+        return np.nan_to_num(x, nan=0.0, posinf=1e38, neginf=-1e38)
+
+
+def _svd(A, use_torch):
+    if use_torch:
+        return torch.linalg.svd(A, full_matrices=False)
+    else:
+        return np.linalg.svd(A, full_matrices=False)
+
+
+def _eigh(A, use_torch):
+    if use_torch:
+        return torch.linalg.eigh(A)  # Hermitian
+    else:
+        # numpy.linalg.eigh expects Hermitian; assumes last two dims are matrix
+        return np.linalg.eigh(A)
+
+
+def _cond_svd(A, use_torch, eps=1e-16):
+    # κ ≈ s_max / s_min
+    if use_torch:
+        s = torch.linalg.svdvals(A)
+        smin = torch.clamp_min(s.min(), eps)
+        return float((s.max() / smin).item())
+    else:
+        s = np.linalg.svd(A, compute_uv=False)
+        smin = max(s.min(), eps)
+        return float(s.max() / smin)
+
+
+def _project_hermitian(A, use_torch):
+    # Symmetrize to Hermitian: (A + A^†)/2
+    Ad = _dagger(A, use_torch)
+    return 0.5 * (A + Ad)
+
+
+def _psd_clip(A, use_torch, floor=0.0):
+    # Project Hermitian matrix to PSD by clipping negative eigenvalues to floor.
+    w, V = _eigh(A, use_torch)
+    if use_torch:
+        w = torch.clamp(w, min=floor)
+        A2 = (V * w.unsqueeze(-2)) @ _dagger(V, use_torch)
+    else:
+        w = np.clip(w, a_min=floor, a_max=None)
+        A2 = (V * w[..., None, :]) @ V.conj().swapaxes(-1, -2)
+    return A2
+
+
+def _trace(A, use_torch):
+    if use_torch:
+        return torch.trace(A)
+    else:
+        return np.trace(A)
+
+
+def _eye(n, use_torch):
+    return torch.eye(n, dtype=torch.complex128) if use_torch else np.eye(n, dtype=np.complex128)
+
+
+def _exp_iH_dt(H, dt, use_torch):
+    # For unitary U = exp(-i H dt) with Hermitian H, prefer spectral form.
+    # Assumes H is Hermitian (symmetrize beforehand).
+    if use_torch:
+        w, V = torch.linalg.eigh(H)
+        phase = torch.exp(-1j * w * dt)
+        U = (V * phase.unsqueeze(-2)) @ V.conj().transpose(-1, -2)
+        return U
+    else:
+        w, V = np.linalg.eigh(H)
+        phase = np.exp(-1j * w * dt)
+        U = (V * phase[..., None, :]) @ V.conjugate().swapaxes(-1, -2)
+        return U
+
+
+class SafetyRails:
+    def __init__(self, mode: RailMode = RailMode.OFF, cfg: RailConfig = RailConfig()):
+        self.mode = mode
+        self.cfg = cfg
+        if cfg.backend == "torch":
+            self.use_torch = _HAS_TORCH
+        elif cfg.backend == "numpy":
+            self.use_torch = False
+        else:  # auto
+            self.use_torch = _HAS_TORCH
+
+    # ------------------- Relativistic / temporal -------------------
+
+    def minkowski_inner(self, x, y, eta):
+        """⟨x,y⟩_η = x^T η y, supports batch."""
+        use_torch = self.use_torch
+        x = _as_backend_array(x, complex_dtype=False, use_torch=use_torch)
+        y = _as_backend_array(y, complex_dtype=False, use_torch=use_torch)
+        eta = _as_backend_array(eta, complex_dtype=False, use_torch=use_torch)
+        z = x @ (eta @ y)
+        return z
+
+    def check_metric_signature(self, eta, expected_neg=1):
+        """Report whether metric η has expected (#negative eigenvalues)."""
+        use_torch = self.use_torch
+        eta = _as_backend_array(eta, complex_dtype=False, use_torch=use_torch)
+        w, _ = _eigh(eta, use_torch)
+        if use_torch:
+            w_np = w.detach().cpu().numpy()
+        else:
+            w_np = w
+        neg = int((w_np < -self.cfg.eps).sum())
+        pos = int((w_np > self.cfg.eps).sum())
+        zero = int(((np.abs(w_np) <= self.cfg.eps)).sum())
+        ok = (neg == expected_neg)
+        return {"ok": ok, "neg": neg, "pos": pos, "zero": zero, "eigvals": w_np}
+
+    def lorentz_invariance_residual(self, L, eta):
+        """Compute || L^T η L - η ||_F."""
+        use_torch = self.use_torch
+        L = _as_backend_array(L, complex_dtype=False, use_torch=use_torch)
+        eta = _as_backend_array(eta, complex_dtype=False, use_torch=use_torch)
+        if use_torch:
+            resid = torch.linalg.matrix_norm(L.T @ eta @ L - eta)
+            return float(resid.item())
+        else:
+            resid = np.linalg.norm(L.T @ eta @ L - eta)
+            return float(resid)
+
+    # ------------------- Quantum / branching -------------------
+
+    def normalize_state(self, psi):
+        """Normalize pure state |psi> to ||psi||2 = 1."""
+        use_torch = self.use_torch
+        psi = _as_backend_array(psi, complex_dtype=True, use_torch=use_torch)
+        nrm = _norm2(psi, use_torch)
+        report = {"pre_norm": float(nrm)}
+        if self.mode == RailMode.ENFORCE:
+            denom = max(self.cfg.eps, nrm)
+            psi = psi / denom
+        return psi, report
+
+    def hermitize(self, A):
+        """A <- (A + A^†)/2"""
+        use_torch = self.use_torch
+        A = _as_backend_array(A, complex_dtype=True, use_torch=use_torch)
+        Ah = _project_hermitian(A, use_torch)
+        return Ah
+
+    def density_psd_trace1(self, rho):
+        """Enforce/Report rho Hermitian, PSD, Tr=1."""
+        use_torch = self.use_torch
+        rho = _as_backend_array(rho, complex_dtype=True, use_torch=use_torch)
+        report = {}
+        # Hermitize
+        rhoH = _project_hermitian(rho, use_torch)
+        # Eigenvalues
+        w, _ = _eigh(rhoH, use_torch)
+        if use_torch:
+            w_np = w.detach().cpu().numpy().real
+        else:
+            w_np = w.real
+        report["min_eig"] = float(w_np.min())
+        report["trace_pre"] = float(_trace(rhoH, use_torch).real if use_torch else np.real(np.trace(rhoH)))
+        if self.mode == RailMode.ENFORCE:
+            rhoH = _psd_clip(rhoH, use_torch, floor=self.cfg.min_eig_clip)
+            tr = _trace(rhoH, use_torch).real
+            # Renormalize trace to 1
+            if self.use_torch:
+                rhoH = rhoH / torch.clamp(tr, min=self.cfg.eps)
+            else:
+                rhoH = rhoH / max(float(tr), self.cfg.eps)
+            if self.cfg.decohere_floor > 0.0:
+                # Zero tiny off-diagonals (simple decoherence floor)
+                if self.use_torch:
+                    real = rhoH.real
+                    imag = rhoH.imag
+                    mask = torch.ones_like(real, dtype=torch.bool)
+                    mask = mask.fill_(True)
+                    # keep diagonals; zero small off-diagonals
+                    idx = torch.arange(real.shape[-1])
+                    real[..., idx, idx] = real[..., idx, idx]  # no-op
+                    imag[..., idx, idx] = imag[..., idx, idx]
+                    small = (real.abs() < self.cfg.decohere_floor) & (~torch.eye(real.shape[-1], dtype=torch.bool))
+                    real = torch.where(small, torch.zeros_like(real), real)
+                    imag = torch.where(small, torch.zeros_like(imag), imag)
+                    rhoH = real + 1j * imag
+                else:
+                    diag = np.diag(np.diag(rhoH))
+                    off = rhoH - diag
+                    off[np.abs(off) < self.cfg.decohere_floor] = 0.0
+                    rhoH = diag + off
+        report["trace_post"] = float(_trace(rhoH, use_torch).real if use_torch else np.real(np.trace(rhoH)))
+        return rhoH, report
+
+    def unitary_step(self, psi, H, dt):
+        """|psi(t+dt)> = exp(-i H dt) |psi(t)|
+           Uses spectral exp for Hermitian H. Returns (psi_new, report)."""
+        use_torch = self.use_torch
+        H = _as_backend_array(H, complex_dtype=True, use_torch=use_torch)
+        psi = _as_backend_array(psi, complex_dtype=True, use_torch=use_torch)
+
+        report = {"mode": self.mode.value}
+        Hh = _project_hermitian(H, use_torch)
+        U = _exp_iH_dt(Hh, dt, use_torch)
+        psi_new = U @ psi
+
+        # Advisory / Enforce normalization & Hermiticity checks
+        psi_new = _nan_to_num(psi_new, use_torch, self.cfg)
+        if self.mode != RailMode.OFF:
+            psi_new, r_norm = self.normalize_state(psi_new)
+            report.update({"psi_pre_norm": r_norm.get("pre_norm", None)})
+
+        return psi_new, report
+
+    def lindblad_step(self, rho, H, Ls, dt):
+        """ρ' = ρ + dt * ( -i[H,ρ] + sum(LρL† - 0.5{L†L, ρ}) )
+           Simple Euler step with enforcement hooks. Returns (rho_new, report)."""
+        use_torch = self.use_torch
+        rho = _as_backend_array(rho, complex_dtype=True, use_torch=use_torch)
+        H = _as_backend_array(H, complex_dtype=True, use_torch=use_torch)
+        Ls = [ _as_backend_array(L, complex_dtype=True, use_torch=use_torch) for L in Ls ]
+
+        report = {"mode": self.mode.value}
+        # Hermitize H and rho for stability
+        Hh = _project_hermitian(H, use_torch)
+        rhoH = _project_hermitian(rho, use_torch)
+
+        # Commutator
+        if use_torch:
+            comm = -1j * (Hh @ rhoH - rhoH @ Hh)
+        else:
+            comm = -1j * (Hh @ rhoH - rhoH @ Hh)
+
+        # Dissipator
+        dissip = 0
+        for L in Ls:
+            LdL = _dagger(L, use_torch) @ L
+            term = L @ rhoH @ _dagger(L, use_torch) - 0.5 * (LdL @ rhoH + rhoH @ LdL)
+            dissip = dissip + term
+
+        drho = comm + dissip
+        rho_new = rhoH + dt * drho
+        rho_new = _nan_to_num(rho_new, use_torch, self.cfg)
+
+        # Post: project to density manifold depending on mode
+        if self.mode == RailMode.OFF:
+            return rho_new, report
+
+        rho_new, r = self.density_psd_trace1(rho_new)
+        report.update(r)
+        return rho_new, report
+
+    # ------------------- Linear algebra rails -------------------
+
+    def cond_and_route(self, A):
+        """Return condition number and a hint on solver routing."""
+        use_torch = self.use_torch
+        A = _as_backend_array(A, complex_dtype=False, use_torch=use_torch)
+        kappa = _cond_svd(A, use_torch, eps=self.cfg.eps)
+        route = "cg_or_cholesky" if kappa < self.cfg.kappa_max else "qr_or_svd"
+        return {"kappa": kappa, "route": route}
+
+    # ------------------- Utility: reports aggregation -------------------
+
+    @staticmethod
+    def merge_reports(*reports):
+        out = {}
+        for r in reports:
+            if isinstance(r, dict):
+                out.update(r)
+        return out
+
+
+# ------------------- Example usage (remove if importing as a lib) -------------------
+if __name__ == "__main__":
+    rails = SafetyRails(mode=RailMode.ADVISORY)
+
+    # Minkowski example
+    eta = np.diag([-1.0, 1.0, 1.0, 1.0])
+    sig = rails.check_metric_signature(eta)
+    print("Metric signature:", sig)
+
+    # Unitary evolution example
+    H = np.array([[0.0, 1.0],
+                  [1.0, 0.0]], dtype=np.complex128)  # Pauli-X
+    psi0 = np.array([1.0, 0.0], dtype=np.complex128)
+    psi1, rep = rails.unitary_step(psi0, H, dt=math.pi/2)  # quarter-period
+    print("psi1:", psi1, "report:", rep)
+
+    # Lindblad example (amplitude damping)
+    gamma = 0.05
+    L = np.sqrt(gamma) * np.array([[0, 1],[0, 0]], dtype=np.complex128)
+    rho0 = np.array([[1, 0],[0, 0]], dtype=np.complex128)
+    rho1, rep2 = rails.lindblad_step(rho0, H, [L], dt=0.1)
+    print("rho1:\n", rho1, "\nreport:", rep2)
