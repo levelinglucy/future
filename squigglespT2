@@ -1,0 +1,4 @@
+from vector_safety_rails import SafetyRails, RailMode
+rails = SafetyRails(mode=RailMode.ADVISORY)
+psi_next, report = rails.unitary_step(psi, H, dt)
+# inspect `report` + compute her own conclusions
