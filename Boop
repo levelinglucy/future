@@ -1,0 +1,270 @@
+import jax
+import jax.numpy as jnp
+from jax import jit, vmap, lax
+from jax.scipy.linalg import expm
+import numpy as np
+import qutip as qt
+import matplotlib.pyplot as plt
+import time
+
+jax.config.update("jax_enable_x64", True)
+
+# ── Shared Tools ────────────────────────────────────────────────────────────
+def dagger(A): 
+    """Conjugate transpose"""
+    return jnp.conjugate(A.T)
+
+
+@jit
+def pauli_at(op, idx, n):
+    """Pauli at position idx (n qubits)"""
+    d = op.shape[0]
+    eye = jnp.eye(d, dtype=op.dtype)
+    left  = jnp.eye(d**idx,   dtype=op.dtype) if idx > 0   else op
+    right = jnp.eye(d**(n-idx-1), dtype=op.dtype) if idx < n-1 else op
+    return jnp.kron(left, jnp.kron(op, right))
+
+
+def qt_pauli_at(op, idx, n):
+    """QuTiP version"""
+    eye = qt.qeye(2)
+    ops = [eye] * n
+    ops[idx] = op
+    return qt.tensor(ops)
+
+
+# ── JAX Liouvillian + Propagation ──────────────────────────────────────────
+@jit
+def liouvillian(H, c_ops):
+    """Time-independent Liouvillian L: vec(ρ̇) = L vec(ρ)"""
+    d = H.shape[0]
+    I = jnp.eye(d, dtype=jnp.complex128)
+
+    # Unitary part
+    L_H = -1j * (jnp.kron(I, H) - jnp.kron(dagger(H), I))
+
+    # Dissipative part (vectorized)
+    @jit
+    def single_dissipator(Lk):
+        Lk_dag = dagger(Lk)
+        Lk_conj = jnp.conj(Lk)
+        return (
+            jnp.kron(Lk_conj, Lk)
+            - 0.5 * jnp.kron(I, Lk_dag @ Lk)
+            - 0.5 * jnp.kron(Lk.T @ Lk_conj, I)
+        )
+
+    L_D = jnp.sum(vmap(single_dissipator)(c_ops), axis=0)
+    return L_H + L_D
+
+
+@jit
+def enforce_physicality(rho):
+    """Force Hermitian → clip negative evals → normalize trace"""
+    rho_h = (rho + dagger(rho)) / 2
+    w, V = jnp.linalg.eigh(rho_h)
+    w = jnp.clip(w, a_min=0.0)
+    rho_phys = V @ jnp.diag(w) @ dagger(V)
+    tr = jnp.trace(rho_phys).real
+    return rho_phys / tr if tr > 1e-14 else rho_phys
+
+
+@jit
+def propagate_liouvillian(rho0, L, t_list):
+    """Efficient constant-step propagator + physicality enforcement"""
+    rho_vec = rho0.ravel()
+    dt = t_list[1] - t_list[0]
+    U_dt = expm(L * dt)                     # only one expensive expm!
+
+    def scan_body(carry, _):
+        next_vec = U_dt @ carry
+        next_rho = next_vec.reshape(rho0.shape)
+        return next_vec, next_rho
+
+    _, states = lax.scan(scan_body, rho_vec, jnp.arange(len(t_list)-1))
+    states = jnp.concatenate([rho0[None, ...], states], axis=0)
+
+    # Physicality enforcement — comment out for maximum speed
+    states = vmap(enforce_physicality)(states)
+
+    return states
+
+
+@jit
+def jax_expectation(states, ops):
+    """states: [t,d,d], ops: [n_ops,d,d] → expectations: [t,n_ops]"""
+    def per_time_step(rho):
+        return vmap(lambda op: jnp.real(jnp.trace(rho @ op)))(ops)
+    return vmap(per_time_step)(states)
+
+
+# ── QuTiP reference ────────────────────────────────────────────────────────
+def solve_qutip(n, gamma, t_list):
+    sz = qt.sigmaz()
+    sm = qt.sigmam()
+
+    H = sum(0.5 * qt_pauli_at(sz, i, n) * qt_pauli_at(sz, i+1, n)
+            for i in range(n-1))
+
+    c_ops = [np.sqrt(gamma) * qt_pauli_at(sm, i, n) for i in range(n)]
+    rho0 = qt.basis(2**n, 0).proj()
+    z_ops = [qt_pauli_at(sz, i, n) for i in range(n)]
+
+    result = qt.mesolve(H, rho0, t_list, c_ops=c_ops, e_ops=z_ops,
+                        options=qt.Options(atol=1e-9, rtol=1e-8))
+    return result.expect
+
+
+# ── Modern plotting (your improved version + small polish) ─────────────────
+def von_neumann_entropy(rho, eps=1e-14, method='eig'):
+    if method == 'diag':
+        p = np.diag(rho.full()).real
+        p = np.clip(p, eps, 1.0)
+        return -np.sum(p * np.log(p))
+    else:
+        evals = rho.eigenenergies()
+        evals = np.clip(evals, eps, None)
+        return -np.sum(evals * np.log(evals))
+
+
+def plot_observables(
+    t_list,
+    result,
+    n,
+    show_entropy=True,
+    show_fidelity=False,
+    target_rho=None,
+    figsize=(18, 5.2),
+    title_prefix="",
+    colors=None,
+    save_path=None
+):
+    fig, axs = plt.subplots(1, 3, figsize=figsize, sharex=True, constrained_layout=True)
+
+    if colors is None:
+        colors = plt.cm.tab10(np.linspace(0, 1, n))
+
+    # Panel 1: ⟨σ_z⟩
+    for i in range(n):
+        axs[0].plot(t_list, result.expect[i], label=f"Site {i}", color=colors[i], lw=1.5)
+    axs[0].set_title(r"$\langle \sigma_z \rangle$ per site")
+    axs[0].set_ylabel(r"$\langle \sigma_z \rangle$")
+    axs[0].legend(ncol=2, fontsize=9)
+    axs[0].grid(True, alpha=0.35, ls='--')
+
+    # Panel 2: Correlations
+    for i in range(n - 1):
+        axs[1].plot(t_list, result.expect[n + i], label=f"{i}–{i+1}", lw=1.5)
+    axs[1].set_title(r"$\langle \sigma_z^i \sigma_z^{i+1} \rangle$")
+    axs[1].set_ylabel("Correlation")
+    axs[1].legend(ncol=2, fontsize=9)
+    axs[1].grid(True, alpha=0.35, ls='--')
+
+    # Panel 3: Entropy / Fidelity
+    has_states = hasattr(result, 'states') and result.states
+
+    if has_states:
+        if show_fidelity and target_rho is not None:
+            fidelities = [qt.fidelity(rho, target_rho) for rho in result.states]
+            axs[2].plot(t_list, fidelities, color='darkgreen', lw=2.2, label="Fidelity")
+            axs[2].set_title("Fidelity vs target")
+            axs[2].set_ylim(0, 1.05)
+        elif show_entropy:
+            entropies = [von_neumann_entropy(rho) for rho in result.states]
+            axs[2].plot(t_list, entropies, color='purple', lw=2.2, label="S(ρ)")
+            axs[2].set_title("Von Neumann entropy")
+            axs[2].set_ylim(0, np.log(2) * n * 1.05)
+        else:
+            axs[2].text(0.5, 0.5, "Neither entropy nor fidelity selected",
+                        ha='center', va='center', fontsize=11, color='gray')
+            axs[2].set_axis_off()
+    else:
+        axs[2].text(0.5, 0.5, "States not stored\n(set store_states=True)",
+                    ha='center', va='center', fontsize=11, color='gray')
+        axs[2].set_axis_off()
+
+    for ax in axs:
+        ax.set_xlabel("Time")
+        ax.grid(True, alpha=0.35, ls='--')
+
+    suptitle = f"{n}-site open Heisenberg chain"
+    if title_prefix:
+        suptitle = f"{title_prefix} — {suptitle}"
+    fig.suptitle(suptitle, fontsize=14, y=1.02)
+
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+
+    plt.show()
+    return fig, axs
+
+
+# ── Comparison Plot ────────────────────────────────────────────────────────
+def compare_expectations(t_list, jax_exps, qutip_exps, n):
+    fig, ax = plt.subplots(figsize=(10, 6))
+    for i in range(n):
+        ax.plot(t_list, jax_exps[:, i], '--', lw=1.6, label=f'JAX site {i}')
+        ax.plot(t_list, qutip_exps[i], '-', lw=1.6, label=f'QuTiP site {i}')
+    ax.set_xlabel("Time")
+    ax.set_ylabel("⟨σ_z⟩")
+    ax.set_title("JAX vs QuTiP: σ_z expectation per site")
+    ax.legend(ncol=2, fontsize='small')
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+
+# ── Main ────────────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    n = 4
+    gamma = 0.1
+    t_end = 10.0
+    n_steps = 201
+    t_np = np.linspace(0, t_end, n_steps)
+    t_jax = jnp.array(t_np)
+
+    print("Running QuTiP simulation...")
+    t0 = time.time()
+    qutip_exps = solve_qutip(n, gamma, t_np)
+    print(f"QuTiP done in {time.time()-t0:.3f} s")
+
+    print("Running JAX simulation...")
+    t0 = time.time()
+
+    sz = jnp.array([[1, 0], [0, -1]], dtype=jnp.complex128)
+    sm = jnp.array([[0, 1], [0, 0]], dtype=jnp.complex128)
+
+    H = jnp.zeros((2**n, 2**n), dtype=jnp.complex128)
+    for i in range(n - 1):
+        H += 0.5 * pauli_at(sz, i, n) @ pauli_at(sz, i + 1, n)
+
+    c_ops = jnp.stack([jnp.sqrt(gamma) * pauli_at(sm, i, n) for i in range(n)])
+    L = liouvillian(H, c_ops)
+
+    rho0 = jnp.zeros((2**n, 2**n), dtype=jnp.complex128)
+    rho0 = rho0.at[0, 0].set(1.0)
+
+    states = propagate_liouvillian(rho0, L, t_jax)
+
+    # Vectorized expectations
+    z_ops = jnp.stack([pauli_at(sz, i, n) for i in range(n)])
+    jax_exps = jax_expectation(states, z_ops)
+
+    print(f"JAX done in {time.time()-t0:.3f} s")
+    print(f"Final trace (JAX): {jnp.trace(states[-1]).real:.10f}")
+
+    # Plots
+    compare_expectations(t_np, np.asarray(jax_exps), qutip_exps, n)
+
+    print("\nModern multi-panel plot:")
+    plot_observables(
+        t_np,
+        qt.mesolve(  # small re-run just for states (optional)
+            qt.Qobj(H), rho0, t_np, [qt.Qobj(c) for c in c_ops],
+            options=qt.Options(store_states=True)
+        ),
+        n=n,
+        title_prefix=f"γ = {gamma:.2f}",
+        show_entropy=True,
+        save_path="dynamics_plot.png"  # optional
+    )
