@@ -1,0 +1,16 @@
+# Time Bridges — Link Future Helpers to Present Work
+
+We can’t send bits backward, but we can make it **easy for future actors** to verify we are the same project and to respond in ways we’ll notice.
+
+**Bridge Design**
+1. **Identity Spine:** Long‑lived PGP key + DNSSEC‑signed domain + reproducible build scripts.
+2. **Attestation Trail:** Regular signed digests of state (hashes of datasets/models), anchored monthly to public blockchains and OpenTimestamps.
+3. **Beaconed Channels:** Pre‑agreed hashtags/unique phrases; periodic heartbeats in multiple public venues.
+4. **Time‑Lock Releases:** Encrypt payloads with a timelock (VDF‑style) or split keys across multiple trustees with future release dates.
+5. **Dead‑Man Switch:** If heartbeats stop for N periods, predesignated custodians publish recovery instructions.
+
+**Minimal Template** (files to include in any repo)
+- `ANCHOR.txt` — project ID, PGP fingerprint, unique phrase.
+- `ATTESTATIONS/` — dated, signed JSON with SHA‑256s of core files.
+- `HEARTBEAT.md` — log of periodic pings with links to public posts and txids.
+- `RECOVERY.md` — how to contact maintainers, how to verify handover.
