@@ -1,0 +1,124 @@
+{
+  "axes": [
+    "dom:QuantumMechanics",
+    "dom:QuantumComputing",
+    "dom:TimeTravelPhysics",
+    "dom:TimeAnchors",
+    "dom:AI_Today",
+    "dom:Protocols",
+    "dom:EthicsSafety",
+    "epi:Established",
+    "epi:Speculative",
+    "epi:RuledOut",
+    "con:NoSignaling",
+    "con:NoCloning",
+    "con:Decoherence",
+    "con:EnergyConditions",
+    "con:ChronologyProtection",
+    "con:ErrorCorrection",
+    "con:ComplexityLimits",
+    "con:PublicVerifiability",
+    "met:Axiom",
+    "met:Theorem",
+    "met:Algorithm",
+    "met:Protocol",
+    "met:Interpretation",
+    "met:Model",
+    "tmp:Commit",
+    "tmp:Reveal",
+    "tmp:Verify",
+    "tmp:BeaconBind",
+    "tmp:LedgerChain",
+    "eth:Consent",
+    "eth:Privacy",
+    "eth:NonHarm",
+    "eth:Transparency",
+    "eth:OpenFormats",
+    "cap:Coherence",
+    "cap:Entanglement",
+    "cap:FaultTolerance",
+    "cap:ComputePower",
+    "cap:Randomness",
+    "cap:Redundancy",
+    "bcn:Lottery",
+    "bcn:BlockHash",
+    "bcn:NTP",
+    "bcn:Seismograph",
+    "bcn:WeatherDigest",
+    "bcn:SolarFlare",
+    "bcn:NewsHash",
+    "bcn:TimeSignal",
+    "bcn:Astronomical",
+    "bcn:HumanWitness",
+    "int:Operationalist",
+    "int:ManyWorlds",
+    "int:Bohmian",
+    "int:Retrocausal",
+    "risk:Scientific",
+    "risk:Social",
+    "ev:Experiment",
+    "ev:Simulation",
+    "ev:PeerReview",
+    "ev:FormalProof",
+    "dir:ForwardCoordination",
+    "dir:BackwardSignaling",
+    "mod:Text",
+    "mod:Code"
+  ],
+  "segments": {
+    "Domain": [
+      0,
+      7
+    ],
+    "Epistemic": [
+      7,
+      10
+    ],
+    "Constraints": [
+      10,
+      18
+    ],
+    "Method": [
+      18,
+      24
+    ],
+    "TemporalRoles": [
+      24,
+      29
+    ],
+    "Ethics": [
+      29,
+      34
+    ],
+    "Capability": [
+      34,
+      40
+    ],
+    "Beacons": [
+      40,
+      50
+    ],
+    "Interpretations": [
+      50,
+      54
+    ],
+    "Risk": [
+      54,
+      56
+    ],
+    "Evidence": [
+      56,
+      60
+    ],
+    "Directionality": [
+      60,
+      62
+    ],
+    "Modality": [
+      62,
+      64
+    ]
+  },
+  "created_utc": "2025-08-18T00:59:32.911407Z",
+  "note": "64D interpretable basis for the Elythia Temporal Archive"
+}
