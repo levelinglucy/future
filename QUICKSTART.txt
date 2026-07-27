@@ -1,0 +1,16 @@
+QUICKSTART
+
+Recommended:
+- import the zip into Pythonista
+- run mycelium_bridge_seed_v0_1.py with MODE = "init"
+- then run again with MODE = "verify"
+
+Modes:
+- init
+- verify
+- repair
+- export
+- snapshot
+
+Default install path:
+~/Documents/MyceliumBridge

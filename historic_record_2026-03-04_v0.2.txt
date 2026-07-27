@@ -1,0 +1,123 @@
+THE HISTORIC RECORD — Planetary Chronicle (v0.2)
+Coverage date: 2026-03-04 (GMT)
+This pass expands:
+A) World Leaders & Institutions (selected)
+B) Alliance Geometry
+C) Conflict Ledger (timelines)
+D) Tech & Science Timeline (spine)
+E) Environment & Biodiversity Watch (method + placeholders)
+
+──────────────────────────────────────────────────────────────────────────────
+A) WORLD LEADERS & MAJOR INSTITUTIONS (SELECTED SNAPSHOT)
+(These are “anchor nodes” for geopolitics; expanded over time.)
+
+Global / Multilateral
+• United Nations — Secretary‑General: António Guterres (term ends 31 Dec 2026).  [UN SG selection context]
+• NATO — Secretary General: Mark Rutte (took office 1 Oct 2024).  [NATO]
+
+G7 / Major Democracies
+• United States — President: Donald J. Trump.  [White House]
+• United Kingdom — Prime Minister: Sir Keir Starmer (took office 5 Jul 2024).  [UK Gov]
+• Canada — Prime Minister: Mark Carney.  [PM of Canada site]
+• France — President: Emmanuel Macron.  [Reuters]
+• Germany — Chancellor: Friedrich Merz (elected 6 May 2025; sworn in same day).  [Guardian]
+• Japan — Prime Minister: Sanae Takaichi (term start 21 Oct 2025).  [Wikipedia]
+• Italy — (to be expanded next pass with verified up‑to‑date sourcing)
+
+Major Powers / Strategic Poles
+• China — President: Xi Jinping. (to be source‑verified and expanded next pass)
+• Russia — President: Vladimir Putin. (to be source‑verified and expanded next pass)
+• India — Prime Minister: Narendra Modi (3rd term began 9 Jun 2024).  [PM India]
+
+EU Leadership (institutional anchors)
+• European Commission — President: Ursula von der Leyen (second mandate elected July 2024; leads Commission to 2029).  [EC President page]
+• European Council — President: António Costa (took office 1 Dec 2024).  [EP Thinktank]
+
+──────────────────────────────────────────────────────────────────────────────
+B) ALLIANCE GEOMETRY (HIGH‑LEVEL MAP)
+NATO / Euro‑Atlantic
+• Core: collective defense (Article 5), deterrence posture, defense industrial scaling.
+• Current gravity: Russia–Ukraine war, long‑term support for Ukraine, and managing escalation elsewhere.
+
+EU
+• A regulatory + economic superstructure with increasing defense‑industrial coordination.
+• Current gravity: sanctions policy, energy security, trade diversification, strategic autonomy debates.
+
+Trade blocs / economic alignment
+• EU–Mercosur: signing ceremony scheduled/signed in Asunción on 17 Jan 2026; now moving through ratification/provisional application debates.  [European Council press release] [AP]
+Significance: trade is geopolitics with spreadsheets. It shifts supply chains, standards, and leverage.
+
+──────────────────────────────────────────────────────────────────────────────
+C) CONFLICT LEDGER (TIMELINES)
+This section keeps “what changed, when, and why it matters.”
+(Where details are uncertain or contested, the ledger marks it explicitly and updates as facts firm up.)
+
+C1) Russia–Ukraine War (2014–present)
+• 2014: Annexation of Crimea; war in eastern Ukraine escalates.
+• 2022: Full‑scale invasion transforms European security architecture.
+• 2026‑03‑03: German Chancellor Merz says he urged U.S. President Trump to increase pressure on Russia’s Putin; stresses any lasting agreement must include Europe and not be negotiated “over our heads.”  [Reuters]
+
+Watchpoints to track daily:
+• peace‑talk structures, ceasefire lines, sanction regime changes, weapons/air‑defense flows, and territorial control shifts.
+
+C2) Middle East escalation involving Iran (2026 live edge)
+• 2026‑03‑04: UK PM Starmer urges “cool heads” and confirms UK defensive deployments (air defenses, counter‑drone capability, F‑35s) amid rising escalation risk after U.S. strikes on Iran.  [Reuters]
+• 2026‑03‑03: France announces deployment of aircraft carrier Charles de Gaulle toward the Mediterranean amid regional war pressure; Macron frames it as securing maritime routes and defensive commitments, while criticizing operations outside international law.  [Reuters]
+
+Watchpoints:
+• spillover to shipping lanes (Hormuz/Red Sea/Suez), energy prices, attacks on bases, widening combatants.
+
+C3) Israel–Hamas / Gaza (2023–present)
+• Ongoing high humanitarian stakes; daily ledger will add ceasefire proposals, access changes, regional spillovers when verified.
+
+C4) Sudan (2023–present)
+• Civil war and humanitarian crisis; ledger will track ceasefire attempts, territorial control, displacement numbers (with UN/IOM citations).
+
+──────────────────────────────────────────────────────────────────────────────
+D) TECH & SCIENCE TIMELINE (SPINE)
+This is the “infrastructure of capability” that underwrites politics and daily life.
+
+Public health & life expectancy engines
+• Clean water, sanitation, vaccination, antibiotics, refrigeration, and public health logistics.
+
+Energy
+• Fossil fuels powered the industrial surge; renewables + storage now scale as a strategic transition.
+• Grid resilience becomes a national security issue (weather extremes + cyber + demand spikes).
+
+Computing & networks
+• Transistor → microprocessor → internet → smartphones → cloud.
+• Satellites + GNSS become invisible critical infrastructure (timekeeping, logistics, finance).
+
+AI
+• 2010s: ML becomes widely operational; 2020s: generative AI becomes mass‑market.
+• Governance pressure points: labor disruption, education, misinformation, cyber, and military applications.
+
+Space & defense tech
+• Commercial launch + mega‑constellations: communications and intelligence are increasingly “hybrid civil‑military.”
+
+──────────────────────────────────────────────────────────────────────────────
+E) ENVIRONMENT & BIODIVERSITY WATCH (METHOD)
+Rule: log biodiversity and extinction updates only when reported by credible bodies
+(IUCN/peer‑reviewed journals/governments/major wire services), to avoid rumor-history.
+
+Climate spine:
+• Warming trend and extremes amplify: heat, flood, wildfire, drought, coastal risk.
+• Oceans: warming + acidification + deoxygenation pressure fisheries and reefs.
+
+Daily biodiversity ledger will include:
+• newly declared extinctions, major IUCN status changes, major protected-area milestones,
+  and significant pollution / ecosystem-collapse events with citations.
+
+──────────────────────────────────────────────────────────────────────────────
+APPENDIX: SOURCES USED FOR KEY “LIVE EDGE” CLAIMS IN THIS PASS
+(Links are represented here as source notes; daily runs will keep citations and dated entries.)
+• White House profile for President Trump (administration page).
+• UK Government page for PM Keir Starmer (prime minister bio page).
+• NATO article: Mark Rutte takes office as Secretary General (1 Oct 2024).
+• European Commission: von der Leyen second mandate (July 2024) and term to 2029.
+• European Parliament Think Tank: António Costa takes office as European Council President (1 Dec 2024).
+• European Council press release (14 Jan 2026) on EU–Mercosur signing ceremony (17 Jan 2026).
+• Reuters reports dated 2026‑03‑03 and 2026‑03‑04 on Middle East escalation and Merz/Ukraine diplomacy.
+• AP report on EU–Mercosur ratification developments (Feb 2026).
+
+END OF v0.2

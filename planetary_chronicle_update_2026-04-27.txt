@@ -1,0 +1,151 @@
+PLANETARY CHRONICLE — INCREMENTAL UPDATE
+Coverage extension: 2026-04-18 to 2026-04-27
+Current date: 2026-04-27
+Scope: major political developments, wars, treaties/rules, scientific and technological advances,
+environmental changes, species-status changes, and alliance shifts.
+
+2026-04-18
+- The United States military was reported to be preparing to board Iran-linked oil tankers
+  and seize commercial ships in international waters. This marked a further shift of the
+  U.S.-Iran conflict into maritime enforcement and economic warfare.
+  Source: Reuters.
+- Tankers attempted crossings of the Strait of Hormuz after a limited reopening, but Iran
+  reimposed restrictions and the UK navy said some ships were fired on. Hundreds of ships
+  remained stranded, keeping oil flows disrupted.
+  Source: Reuters.
+- The Netherlands was reported to be activating the first phase of an energy crisis plan.
+  This showed how the Hormuz crisis was pushing European governments into energy-security
+  contingency planning.
+  Source: Reuters.
+- Mediation failed in a dispute over the Franco-German FCAS future fighter aircraft
+  project, showing continuing difficulties in European defence-industrial integration.
+  Source: Reuters.
+- Iran said no date had been set for the next round of negotiations with the United States
+  and that a framework of understanding must be agreed first.
+  Source: Reuters.
+
+2026-04-20
+- The Bank for International Settlements called international cooperation on stablecoins
+  critically important to prevent severe market fragmentation. This placed digital money
+  governance into the broader record of financial-system stability risks.
+  Source: Reuters.
+- Venezuela said 51 people had been granted alternative detention measures as part of a
+  claimed peace-promotion effort, while rights groups continued to frame detentions as
+  a mechanism of political repression.
+  Source: Reuters.
+- Heavy rain caused flooding and landslips in Wellington, New Zealand, prompting evacuation
+  warnings in low-lying areas.
+  Source: Reuters.
+- The EU said it would widen Iran sanctions criteria to include those responsible for
+  blocking the Strait of Hormuz.
+  Source: Reuters.
+
+2026-04-21
+- NATO criticised Russian and Chinese nuclear stances ahead of a UN conference and urged
+  renewed cooperation with the United States on transparency and strategic stability.
+  Source: Reuters.
+- President Trump said the United States would extend the Iran ceasefire until an Iranian
+  proposal was submitted and discussions were concluded.
+  Source: Reuters.
+
+2026-04-22
+- The Kremlin said Vladimir Putin could meet Volodymyr Zelenskiy only to agree final
+  arrangements to end the conflict, after Kyiv asked Turkey to host a meeting.
+  Source: Reuters.
+- Turkish President Tayyip Erdogan told NATO Secretary General Mark Rutte that Turkey was
+  trying to revive Russia-Ukraine negotiations and bring the leaders together for direct
+  talks.
+  Source: Reuters.
+- Iran seized two ships in the Strait of Hormuz for alleged maritime violations. The U.S.
+  and Iran remained divided on ceasefire terms, port blockades, nuclear issues, and control
+  of the strait.
+  Source: Reuters.
+- European chip and electrical stocks rose as AI optimism built into earnings expectations,
+  with analysts describing an AI-led investment upswing.
+  Source: Reuters.
+
+2026-04-23
+- The European Union formally approved a 90 billion euro loan to Ukraine and its 20th
+  sanctions package against Russia, after Hungary lifted its veto. The aid was designed to
+  cover around two-thirds of Ukraine's projected needs over two years and included large
+  military and public-service components.
+  Source: Reuters.
+- Research described enormous Late Cretaceous octopus-like predators, including
+  Nanaimoteuthis haggarti, which may have reached around 6.6 to 18.6 metres. The finding
+  revised understanding of ancient marine food webs by showing that soft-bodied
+  invertebrates could also be apex predators.
+  Source: Reuters / Science reporting.
+
+2026-04-24
+- Reuters published a visual account of large tankers crossing the Strait of Hormuz,
+  showing the waterway remained a central battleground in the U.S.-Iran confrontation
+  after President Trump unilaterally announced a ceasefire extension.
+  Source: Reuters.
+
+2026-04-26
+- Reuters reported that U.S.-Iran peace hopes faded after Trump scrapped a planned
+  Islamabad visit by envoys Steve Witkoff and Jared Kushner. Iranian Foreign Minister
+  Abbas Araqchi moved through mediators Pakistan and Oman and then headed to Russia for
+  talks.
+  Source: Reuters.
+- Trump said Iran could contact the United States if it wanted to negotiate an end to
+  the war.
+  Source: Reuters.
+
+2026-04-27
+- Iran presented a proposal to the United States via Pakistani mediators aimed at reopening
+  the Strait of Hormuz and ending the conflict. The plan reportedly set nuclear talks aside
+  for a later phase and focused first on de-escalation and maritime access.
+  Sources: Reuters / Axios report; AP.
+- AP reported that Iran offered to end its chokehold on the Strait of Hormuz without tying
+  the move to its nuclear programme, in exchange for the U.S. lifting its blockade of
+  Iranian ports. The proposal was considered unlikely to satisfy President Trump's demand
+  that Iran dismantle its nuclear programme before talks proceed.
+  Source: AP.
+- Oil prices climbed nearly 3% as U.S.-Iran peace talks stalled. Reuters reported Brent
+  crude reached about $108.36 per barrel, with restricted Hormuz flows and Iranian-port
+  blockades tightening global supply.
+  Source: Reuters.
+- Global markets held relatively steady while oil rose. AI-related optimism helped support
+  some equities despite geopolitical instability.
+  Source: Reuters.
+- Northeast Asian diesel and jet fuel exports were expected to recover in May as refiners
+  capitalised on high margins and improving crude supply.
+  Source: Reuters.
+- LNG tanker orders gained pace despite the mixed outlook from the Iran war, reflecting
+  expectations of continued demand for flexible gas shipping infrastructure.
+  Source: Reuters.
+- Reuters commentary argued that Asia, despite heavy exposure to Middle East energy, could
+  gain over time from conflict-driven acceleration of cybersecurity investment, fossil-fuel
+  diversification, and supply-chain reorientation.
+  Source: Reuters.
+- A Guardian business live report stated that China blocked Meta's proposed acquisition of
+  AI agent startup Manus on national technology security grounds. This fits the wider
+  pattern of technology sovereignty and AI-sector fragmentation.
+  Source: The Guardian.
+- No newly confirmed global species extinction was logged for this date in the checked
+  sources. The biodiversity ledger did log an earlier April IUCN status update: on
+  2026-04-09, emperor penguin and Antarctic fur seal were listed as Endangered due to
+  climate change pressures.
+  Source: IUCN.
+
+Structural reading
+- The Iran war remains the dominant live systemic shock. The main variable is not only
+  battlefield activity but control of maritime access through the Strait of Hormuz.
+- Diplomacy is fragmented: Pakistan, Oman, Russia, Turkey, and Western states are all
+  involved in different pieces of the conflict-management architecture.
+- The Russia-Ukraine war is again being linked to possible leader-level negotiation, but
+  Russia says any Putin-Zelenskiy meeting must finalize an end-state rather than reopen
+  exploratory talks.
+- Europe is simultaneously increasing financial/military support for Ukraine and struggling
+  with defence-industrial cohesion, visible in both the EU loan/sanctions package and the
+  FCAS fighter project dispute.
+- Nuclear arms-control stress is rising, with NATO publicly criticising both Russian and
+  Chinese nuclear postures.
+- AI and semiconductor demand continue to shape markets, industrial policy, export flows,
+  cloud infrastructure, and technology-sovereignty decisions.
+- Climate and biodiversity remain active historical forces: April included major storm and
+  flooding impacts in New Zealand, status deterioration for Antarctic species, and new
+  paleontological discoveries altering the history of ancient marine ecosystems.
+
+End of update.

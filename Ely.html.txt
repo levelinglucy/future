@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Elythia v13 — Unified System (Echo • Relics • Realms)</title>
+<style>
+  html,body{margin:0;height:100%;background:#02040a;overflow:hidden;font-family:-apple-system,system-ui}
+  canvas{width:100vw;height:100vh;display:block;touch-action:none}
+  .hud{position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top));display:flex;gap:10px;justify-content:space-between;pointer-events:none}
+  .chip{pointer-events:auto;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:rgba(255,255,255,.92);
+        border-radius:16px;padding:10px 12px;backdrop-filter:blur(10px);box-shadow:0 12px 36px rgba(0,0,0,.45);font-size:13px;line-height:1.2}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  button{pointer-events:auto;appearance:none;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.08);
+         color:rgba(255,255,255,.92);border-radius:999px;padding:8px 11px;font-weight:650;font-size:13px}
+  button:active{transform:translateY(1px)}
+  .toast{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));
+         padding:10px 12px;border-radius:16px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14);
+         color:rgba(255,255,255,.92);backdrop-filter:blur(10px);box-shadow:0 12px 36px rgba(0,0,0,.45);
+         font-size:13px;opacity:0;transform:translateY(8px);transition:opacity .18s ease,transform .18s ease;pointer-events:none}
+  .toast.show{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="hud">
+  <div class="chip">
+    <div><b>Elythia v13</b> 🌌🧬👁️</div>
+    <div id="status" style="opacity:.75;margin-top:4px">Booting…</div>
+  </div>
+  <div class="chip">
+    <div class="row">
+      <button id="btnMap">Star Map</button>
+      <button id="btnMyths">Myths</button>
+      <button id="btnRelics">Relics</button>
+      <button id="btnSave">Save</button>
+      <button id="btnReset">Reset</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// Elythia v13 — Unified Build
+// Controls:
+//   - Swipe: move
+//   - Double tap: interact (temple/seam)
+//   - Star Map: tap a star to fast travel
+//   - Relics: tap a relic line to activate
+//   - Triple tap the Relics button: FUSE active relic with next relic
+
+const STORAGE_KEY="elythia_v13_unified_save";
+
+const c=document.getElementById("c");
+const g=c.getContext("2d");
+const statusEl=document.getElementById("status");
+const toastEl=document.getElementById("toast");
+
+let DPR=Math.min(devicePixelRatio||1,2);
+function resize(){ c.width=innerWidth*DPR; c.height=innerHeight*DPR; g.setTransform(DPR,0,0,DPR,0,0); }
+addEventListener("resize",resize); resize();
+
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+
+function toast(msg){
+  toastEl.textContent=msg;
+  toastEl.classList.add("show");
+  setTimeout(()=>toastEl.classList.remove("show"), 1400);
+}
+
+// ===== Seeded RNG =====
+function xmur3(str){
+  let h=1779033703^str.length;
+  for(let i=0;i<str.length;i++){ h=Math.imul(h^str.charCodeAt(i),3432918353); h=(h<<13)|(h>>>19); }
+  return function(){ h=Math.imul(h^(h>>>16),2246822507); h=Math.imul(h^(h>>>13),3266489909); return (h^=(h>>>16))>>>0; }
+}
+function mulberry32(a){
+  return function(){
+    let t=a+=0x6D2B79F5;
+    t=Math.imul(t^(t>>>15),t|1);
+    t^=t+Math.imul(t^(t>>>7),t|61);
+    return ((t^(t>>>14))>>>0)/4294967296;
+  }
+}
+let seedStr="ELYTHIA-"+Math.floor(Math.random()*1e9);
+function rngFor(key){ const s=xmur3(seedStr+"|"+key)(); return mulberry32(s); }
+
+// ===== Constants =====
+const SIZE=78;
+const CELL=14;
+const VOID=0, MYC=1, STRUCT=2, TEMPLE=3, PATH=4;
+const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+const inB=(x,y)=>x>=0&&y>=0&&x<SIZE&&y<SIZE;
+
+// ===== UI toggles =====
+let showMap=false, showMyths=false, showRelics=false;
+document.getElementById("btnMap").addEventListener("click",()=>{ showMap=!showMap; if(showMap){showMyths=false;showRelics=false;} });
+document.getElementById("btnMyths").addEventListener("click",()=>{ showMyths=!showMyths; if(showMyths){showMap=false;showRelics=false;} });
+document.getElementById("btnRelics").addEventListener("click",()=>{ showRelics=!showRelics; if(showRelics){showMap=false;showMyths=false;} });
+document.getElementById("btnSave").addEventListener("click",save);
+document.getElementById("btnReset").addEventListener("click",resetAll);
+
+// ===== Names + Sigils =====
+const nameA=["Auric","Lantern","Silent","Chrome","Fractal","Verdant","Echo","Spiral","Tide","Mycel","Hollow","Cinder"];
+const nameB=["Vault","Bloom","Sanctum","Garden","Choir","Circuit","Veil","Court","Mirror","Warren","Drift","Reliquary"];
+const glyphAlphabet=["⌁","✶","⋔","⟁","⟡","∴","⌬","◌"];
+
+function dimName(id){
+  const r=rngFor("name|"+id);
+  return nameA[(r()*nameA.length)|0]+" "+nameB[(r()*nameB.length)|0];
+}
+
+let sigils={}; // lineageId -> symbol
+function makeSigil(lineage){
+  if(sigils[lineage]) return sigils[lineage];
+  const r=rngFor("sigil|"+lineage);
+  let s="";
+  s += glyphAlphabet[(r()*glyphAlphabet.length)|0];
+  s += glyphAlphabet[(r()*glyphAlphabet.length)|0];
+  sigils[lineage]=s;
+  return s;
+}
+
+// ===== Player scent =====
+let travelSig = { steps:0, temples:0, jumps:0, linger:0, scentA:0.2, scentB:0.2, scentC:0.2 };
+function updateScent(biome, w){
+  travelSig.scentA = clamp(lerp(travelSig.scentA, biome.A, w), 0, 1);
+  travelSig.scentB = clamp(lerp(travelSig.scentB, biome.B, w), 0, 1);
+  travelSig.scentC = clamp(lerp(travelSig.scentC, biome.C, w), 0, 1);
+}
+function scentVector(){ return {A:travelSig.scentA, B:travelSig.scentB, C:travelSig.scentC}; }
+
+// ===== Myth Engine =====
+function domBiome(b){ return (b.B>b.C && b.B>b.A) ? "alien" : (b.C>b.A ? "sacred" : "calm"); }
+function mythSeedLine(d){
+  const tone=domBiome(d.biome);
+  if(tone==="alien") return "In the neon lattice, footsteps become equations.";
+  if(tone==="sacred") return "In the sanctum light, your presence folds into hymn.";
+  return "In the soft mycelium, the world learns your rhythm.";
+}
+function mythPush(d, line){
+  if(!d.myths) d.myths=[mythSeedLine(d)];
+  if(!d.myths.includes(line)){
+    d.myths.unshift(line);
+    if(d.myths.length>12) d.myths.pop();
+  }
+}
+function totalMythCount(){
+  let n=0;
+  for(const d of Object.values(dimensions)){
+    if(d.myths) n += d.myths.length;
+  }
+  return n;
+}
+
+// ===== Star positions =====
+function starPos(id){
+  const r=rngFor("starpos|"+id);
+  const ang=r()*Math.PI*2;
+  const rad=0.20 + r()*0.78;
+  return { x:Math.cos(ang)*rad, y:Math.sin(ang)*rad };
+}
+
+// ===== Relics (inventory, active, refusal, fusion, evolution) =====
+function normAura(a){
+  const m=a.A+a.B+a.C+1e-9;
+  return {A:a.A/m,B:a.B/m,C:a.C/m};
+}
+function auraDot(a,b){ return a.A*b.A + a.B*b.B + a.C*b.C; }
+function blendAura(a,b){ return normAura({A:(a.A+b.A)/2, B:(a.B+b.B)/2, C:(a.C+b.C)/2}); }
+
+function newRelic(name, aura, mods){
+  const r=rngFor("relic|"+name+"|"+Math.random());
+  const id="R"+Math.floor(r()*1e9);
+  const sig= glyphAlphabet[(r()*glyphAlphabet.length)|0] + glyphAlphabet[(r()*glyphAlphabet.length)|0];
+  return {
+    id, name, sigil:sig,
+    aura:normAura(aura),
+    mods:{...mods},
+    fusedFrom:null,
+    rejectedBy:{},
+    lvl:1,
+    charge:0,
+    quirks:[]
+  };
+}
+
+const relicTemplates = [
+  newRelic("Lantern Shard", {A:0.15,B:0.20,C:0.65}, {grow:1.35, tribe:1.05, time:1.00, temple:1.45, calm:0.95}),
+  newRelic("Mycel Crown",   {A:0.55,B:0.15,C:0.30}, {grow:1.10, tribe:1.55, time:1.00, temple:1.05, calm:1.05}),
+  newRelic("Quiet Prism",   {A:0.70,B:0.10,C:0.20}, {grow:0.80, tribe:0.85, time:0.85, temple:0.90, calm:1.35}),
+  newRelic("Chrome Thorn",  {A:0.10,B:0.75,C:0.15}, {grow:1.20, tribe:0.95, time:1.10, temple:1.00, calm:0.90}),
+  newRelic("Hymn Locket",   {A:0.20,B:0.10,C:0.70}, {grow:1.00, tribe:1.10, time:0.95, temple:1.25, calm:1.15}),
+];
+
+let relics=[];
+let activeRelicId=null;
+
+function cloneTemplate(t){
+  return {
+    id:t.id+"_"+Math.floor(Math.random()*1e6),
+    name:t.name,
+    sigil:t.sigil,
+    aura:{...t.aura},
+    mods:{...t.mods},
+    fusedFrom:null,
+    rejectedBy:{},
+    lvl:1,
+    charge:0,
+    quirks:[]
+  };
+}
+
+function grantRandomRelic(){
+  const pick = relicTemplates[(Math.random()*relicTemplates.length)|0];
+  const r = cloneTemplate(pick);
+  relics.push(r);
+  if(!activeRelicId) activeRelicId=r.id;
+  toast("Relic gained: "+r.name+" "+r.sigil);
+}
+
+function getActiveRelic(){
+  if(!activeRelicId) return null;
+  return relics.find(r=>r.id===activeRelicId) || null;
+}
+
+// Realm refusal: per-relic per-realm persistent
+function isRelicRejectedInRealm(relic, dim){
+  if(!relic) return false;
+  return !!relic.rejectedBy[dim.id];
+}
+function maybeRefuseRelic(relic, dim){
+  if(!relic) return false;
+  if(relic.rejectedBy[dim.id]) return true;
+
+  // mismatch + gravity + age -> refusal chance
+  const sim = auraDot(relic.aura, normAura(dim.biome)); // 0..1
+  const grav = computeGravity(dim);
+  const age = realmAge(dim);
+  const stubborn = clamp(age/1400, 0, 0.45);
+  const chance = clamp((0.56 - sim)*0.72 + (grav*0.18) + stubborn, 0, 0.88);
+
+  if(Math.random() < chance){
+    relic.rejectedBy[dim.id] = true;
+    mythPush(dim, `The ${relic.name} refuses this realm.`);
+    return true;
+  }
+  return false;
+}
+
+function fuseRelics(a, b){
+  const fused = cloneTemplate(a);
+  fused.name = a.name.split(" ")[0] + " " + b.name.split(" ")[1];
+  fused.aura = blendAura(a.aura, b.aura);
+  fused.mods = {...a.mods, ...b.mods}; // simplistic merge
+  fused.lvl = Math.max(a.lvl, b.lvl) + 1;
+  fused.fusedFrom = [a.id, b.id];
+  fused.sigil = makeSigil(fused.id);
+
+  const idxA = relics.findIndex(r=>r.id===a.id);
+  const idxB = relics.findIndex(r=>r.id===b.id);
+  relics.splice(Math.max(idxA,idxB),1);
+  relics.splice(Math.min(idxA,idxB),1);
+  relics.push(fused);
+  activeRelicId = fused.id;
+
+  toast("Fusion: " + fused.name + " " + fused.sigil + " L" + fused.lvl);
+  return fused;
+}
+
+// ===== Dimensions =====
+let dimensions = {};
+let player = { x:Math.floor(SIZE/2), y:Math.floor(SIZE/2), dimId:"root", mode:"world" };
+let tick = 0;
+let pulse = 0;
+let journal = [];
+let links = [];
+let echoUnlocked = false;
+
+function makeTile(t){
+  return {t, h: t===VOID ? 0 : 0.5};
+}
+
+function createDimension(id, parentId, portalPos, isEcho=false){
+  const r = rngFor("dim|"+id);
+  const biome = {
+    A: r()*0.4 + 0.3,
+    B: r()*0.4 + 0.3,
+    C: r()*0.4 + 0.3
+  };
+  const sum = biome.A + biome.B + biome.C;
+  biome.A /= sum; biome.B /= sum; biome.C /= sum;
+
+  const tiles = Array(SIZE).fill().map(()=>Array(SIZE).fill().map(()=>makeTile(VOID)));
+
+  // initial mycelium bloom from center or portal
+  const cx = isEcho ? SIZE/2 : (portalPos ? portalPos.x : SIZE/2|0);
+  const cy = isEcho ? SIZE/2 : (portalPos ? portalPos.y : SIZE/2|0);
+  tiles[cy][cx].t = MYC;
+  tiles[cy][cx].h = 1;
+
+  dimensions[id] = {
+    id,
+    name: dimName(id),
+    temperament: r() > 0.5 ? "expansive" : "contemplative",
+    biome,
+    tiles,
+    entities: [],
+    portals: [],
+    portalBack: parentId ? {x:cx, y:cy, target:parentId} : null,
+    myths: null,
+    history: {visits:0, linger:0, touches:0, templeRites:0, fastTravels:0, gravity:0, lastVisitTick:0},
+    discovered: true
+  };
+
+  // place a temple somewhere
+  const tr = rngFor("temple|"+id);
+  const tx = clamp(cx + ((tr()*20)|0)-10, 5, SIZE-6);
+  const ty = clamp(cy + ((tr()*20)|0)-10, 5, SIZE-6);
+  tiles[ty][tx].t = TEMPLE;
+  dimensions[id].portals.push({x:tx, y:ty, target:null});
+
+  if(parentId){
+    const parent = dimensions[parentId];
+    parent.portals.find(p=>p.target===null).target = id;
+  }
+
+  return dimensions[id];
+}
+
+function findPortalAt(dim, x, y){
+  return dim.portals.find(p=>p.x===x && p.y===y);
+}
+
+function realmAge(d){
+  return tick - d.history.lastVisitTick;
+}
+
+function computeGravity(d){
+  return clamp(d.history.visits*0.08 + d.history.linger*0.004 + d.history.touches*0.12, 0, 2.8);
+}
+
+// ===== Evolution =====
+function evolveDimension(d, isActive){
+  const rate = isActive ? 1.2 : 0.4;
+  for(let y=0;y<SIZE;y++){
+    for(let x=0;x<SIZE;x++){
+      const t = d.tiles[y][x];
+      if(t.t === MYC && Math.random() < 0.008*rate){
+        const [dx,dy] = dirs[(Math.random()*4)|0];
+        const nx=x+dx, ny=y+dy;
+        if(inB(nx,ny) && d.tiles[ny][nx].t===VOID){
+          d.tiles[ny][nx].t = MYC;
+          d.tiles[ny][nx].h = 0.3 + Math.random()*0.4;
+        }
+      }
+    }
+  }
+}
+
+function relicChargeTick(d){
+  const relic = getActiveRelic();
+  if(!relic) return;
+  if(Math.random() < 0.02) relic.charge = Math.min(relic.charge+1, 100);
+}
+
+// ===== Unlock Echo =====
+function checkEchoUnlock(){
+  if(echoUnlocked) return;
+  if(totalMythCount() >= 18 && travelSig.scentC > 0.65){
+    echoUnlocked = true;
+    createDimension("echo", player.dimId, null, true);
+    mythPush(dimensions[player.dimId], "A mirror realm opens — Echo awaits.");
+    toast("Echo dimension unlocked 🌊");
+  }
+}
+
+// ===== Drawing =====
+function drawWorld(){
+  g.clearRect(0,0,innerWidth,innerHeight);
+  const d = dimensions[player.dimId] || dimensions["root"];
+  const offsX = innerWidth/2 - player.x*CELL;
+  const offsY = innerHeight/2 - player.y*CELL;
+
+  // background gradient
+  const grad = g.createRadialGradient(innerWidth/2, innerHeight/2, 0, innerWidth/2, innerHeight/2, Math.max(innerWidth,innerHeight));
+  grad.addColorStop(0, "#0a1420");
+  grad.addColorStop(1, "#000306");
+  g.fillStyle = grad;
+  g.fillRect(0,0,innerWidth,innerHeight);
+
+  // tiles
+  for(let y=0;y<SIZE;y++){
+    for(let x=0;x<SIZE;x++){
+      const t = d.tiles[y][x];
+      const px = offsX + x*CELL + CELL/2;
+      const py = offsY + y*CELL + CELL/2;
+      if(t.t === VOID) continue;
+
+      let col = "#111";
+      if(t.t === MYC) col = "#1a3a2a";
+      if(t.t === STRUCT) col = "#2a2a3a";
+      if(t.t === TEMPLE) col = "#3a2a4a";
+      if(t.t === PATH) col = "#223344";
+
+      g.fillStyle = col;
+      g.fillRect(offsX+x*CELL, offsY+y*CELL, CELL, CELL);
+
+      // height glow
+      g.globalAlpha = t.h * 0.6;
+      g.fillStyle = "#ffffff";
+      g.fillRect(offsX+x*CELL, offsY+y*CELL, CELL, CELL);
+      g.globalAlpha = 1;
+    }
+  }
+
+  // portals / seams
+  d.portals.forEach(p=>{
+    const px = offsX + p.x*CELL + CELL/2;
+    const py = offsY + p.y*CELL + CELL/2;
+    g.beginPath();
+    g.arc(px,py,CELL*0.8,0,Math.PI*2);
+    g.strokeStyle = "rgba(100,180,255,0.4)";
+    g.lineWidth = 2;
+    g.stroke();
+  });
+
+  // player glow pulse
+  const mods = {relic: getActiveRelic(), refused: false};
+  if(mods.relic && isRelicRejectedInRealm(mods.relic, d)) mods.refused = true;
+
+  g.beginPath();
+  g.arc(innerWidth/2, innerHeight/2, CELL*0.34, 0, Math.PI*2);
+  g.fillStyle=`rgba(0,255,255,${0.30 + ((Math.sin(pulse)+1)/2)*0.25})`;
+  g.fill();
+  g.strokeStyle="rgba(255,255,255,0.25)";
+  g.stroke();
+
+  // active relic ring
+  if(mods.relic){
+    g.beginPath();
+    g.arc(innerWidth/2, innerHeight/2, CELL*0.70, 0, Math.PI*2);
+    g.strokeStyle=`rgba(255,255,255,${mods.refused?0.10:0.22})`;
+    g.stroke();
+  }
+
+  // echo overlay
+  if(d.id==="echo"){
+    g.fillStyle="rgba(180,200,255,0.05)";
+    g.fillRect(0,0,innerWidth,innerHeight);
+  }
+
+  d.history.gravity = computeGravity(d);
+  const dom=domBiome(d.biome);
+  const ageLabel = n=> n<60?"newborn":n<300?"young":n<900?"mature":"ancient";
+  const age = realmAge(d);
+  const relicLabel = mods.relic ? `${mods.relic.sigil} L${mods.relic.lvl} ${mods.relic.name}${mods.refused?" (refused)":" "}` : "none";
+  statusEl.textContent = `${d.name} · ${dom} · age ${ageLabel(age)} · gravity ${d.history.gravity.toFixed(2)} · relic: ${relicLabel}`;
+}
+
+// ===== Star Map =====
+function drawStarMap(){
+  g.fillStyle = "rgba(0,0,0,0.75)";
+  g.fillRect(0,0,innerWidth,innerHeight);
+
+  const cx = innerWidth/2, cy = innerHeight/2;
+  const maxRad = Math.min(innerWidth,innerHeight)*0.38;
+
+  Object.keys(dimensions).forEach(id=>{
+    if(id==="echo" && !echoUnlocked) return;
+    const d = dimensions[id];
+    const pos = starPos(id);
+    const x = cx + pos.x * maxRad;
+    const y = cy + pos.y * maxRad;
+    d._mapX = x; d._mapY = y; d._mapR = 18;
+
+    const pulseSize = 12 + Math.sin(pulse + id.charCodeAt(0))*4;
+    g.beginPath();
+    g.arc(x,y,pulseSize,0,Math.PI*2);
+    g.fillStyle = id===player.dimId ? "rgba(0,255,255,0.8)" : "rgba(255,255,255,0.4)";
+    g.fill();
+
+    g.fillStyle = "white";
+    g.font = "11px monospace";
+    g.textAlign = "center";
+    g.fillText(d.name, x, y+28);
+  });
+}
+
+// ===== Myths Panel =====
+function drawMythsPanel(){
+  g.fillStyle = "rgba(0,0,0,0.8)";
+  g.fillRect(innerWidth*0.1, innerHeight*0.1, innerWidth*0.8, innerHeight*0.8);
+
+  const d = dimensions[player.dimId];
+  g.fillStyle = "white";
+  g.font = "14px monospace";
+  g.textAlign = "left";
+
+  g.fillText(d.name + " — Myths", innerWidth*0.12, innerHeight*0.18);
+
+  if(d.myths){
+    d.myths.forEach((line,i)=>{
+      g.fillText(line, innerWidth*0.15, innerHeight*0.25 + i*22);
+    });
+  }
+}
+
+// ===== Relics Panel =====
+let relicPanelHit = null;
+function drawRelicsPanel(){
+  const x0 = innerWidth*0.1, y0 = innerHeight*0.1;
+  const w = innerWidth*0.8, h = innerHeight*0.8;
+  g.fillStyle = "rgba(0,0,0,0.8)";
+  g.fillRect(x0,y0,w,h);
+
+  g.fillStyle = "white";
+  g.font = "14px monospace";
+  g.textAlign = "center";
+  g.fillText("Relics", innerWidth/2, y0+30);
+
+  const lineH = 28;
+  relics.forEach((r,i)=>{
+    const y = y0 + 60 + i*lineH;
+    const active = r.id === activeRelicId;
+    g.fillStyle = active ? "rgba(0,255,255,0.3)" : "rgba(255,255,255,0.1)";
+    g.fillRect(x0+20, y-18, w-40, lineH-4);
+
+    g.fillStyle = "white";
+    g.textAlign = "left";
+    g.fillText(`${r.sigil}  ${r.name}  L${r.lvl}  charge:${r.charge}%`, x0+40, y);
+
+    if(active){
+      g.fillStyle = "cyan";
+      g.fillText("ACTIVE", x0+w-120, y);
+    }
+  });
+
+  relicPanelHit = {x0,y0,w,h,lineY:y0+60,lineH};
+}
+
+// ===== Interaction =====
+function interact(){
+  const d = dimensions[player.dimId];
+  const tile = d.tiles[player.y][player.x];
+
+  if(tile.t === TEMPLE){
+    mythPush(d, "You perform a quiet rite in the temple light.");
+    d.history.templeRites++;
+    toast("Temple rite performed ✨");
+    if(Math.random()<0.25) grantRandomRelic();
+  }
+
+  const portal = findPortalAt(d, player.x, player.y);
+  if(portal && portal.target){
+    player.dimId = portal.target;
+    const targetDim = dimensions[portal.target];
+    targetDim.history.visits++;
+    targetDim.history.lastVisitTick = tick;
+    mythPush(targetDim, "You step through the seam into a new rhythm.");
+    toast("Entered: " + targetDim.name);
+  }
+}
+
+function move(dx,dy){
+  const nx = player.x + dx, ny = player.y + dy;
+  if(inB(nx,ny)){
+    player.x = nx; player.y = ny;
+    const d = dimensions[player.dimId];
+    d.history.touches++;
+    if(d.tiles[ny][nx].t === MYC){
+      travelSig.steps++;
+      updateScent(d.biome, 0.015);
+    }
+  }
+}
+
+// ===== Input =====
+let sx=0, sy=0, lastTap=0;
+c.addEventListener("pointerdown",(e)=>{ sx=e.clientX; sy=e.clientY; e.preventDefault(); }, {passive:false});
+c.addEventListener("pointerup",(e)=>{
+  e.preventDefault();
+  const dx=e.clientX-sx, dy=e.clientY-sy;
+  const adx=Math.abs(dx), ady=Math.abs(dy);
+  const th=18;
+  const now=performance.now();
+
+  if(showMap){
+    for(const id of Object.keys(dimensions)){
+      if(id==="echo" && !echoUnlocked) continue;
+      const d=dimensions[id];
+      if(d._mapX==null) continue;
+      const dist=Math.hypot(e.clientX-d._mapX, e.clientY-d._mapY);
+      if(dist < (d._mapR||14)){
+        fastTravelTo(id);
+        showMap=false;
+        return;
+      }
+    }
+  }
+
+  if(showRelics && relicPanelHit){
+    const {x0,y0,w,h,lineY,lineH}=relicPanelHit;
+    if(e.clientX>=x0 && e.clientX<=x0+w && e.clientY>=lineY && e.clientY<=y0+h-26){
+      const idx=Math.floor((e.clientY - lineY)/lineH);
+      if(idx>=0 && idx<relics.length){
+        activeRelicId=relics[idx].id;
+        toast("Active: "+relics[idx].name+" "+relics[idx].sigil);
+        mythPush(dimensions[player.dimId], `You attune to ${relics[idx].name}.`);
+        return;
+      }
+    }
+  }
+
+  if(adx<th && ady<th){
+    if(now-lastTap<280) interact();
+    lastTap=now;
+    return;
+  }
+
+  if(adx>ady) move(dx>0?1:-1,0);
+  else move(0,dy>0?1:-1);
+},{passive:false});
+
+// Triple-tap Relics button to fuse
+let fuseTapCount=0;
+let fuseTapTimer=null;
+document.getElementById("btnRelics").addEventListener("click", ()=>{
+  fuseTapCount++;
+  clearTimeout(fuseTapTimer);
+  fuseTapTimer=setTimeout(()=>{ fuseTapCount=0; }, 420);
+
+  if(fuseTapCount>=3){
+    fuseTapCount=0;
+    attemptFuse();
+  }
+});
+
+function attemptFuse(){
+  if(relics.length<2){
+    toast("Need 2+ relics to fuse 🧩");
+    return;
+  }
+  const active=getActiveRelic();
+  if(!active){
+    activeRelicId=relics[0].id;
+    toast("Pick an active relic first 🗝️");
+    return;
+  }
+  const idx=relics.findIndex(r=>r.id===activeRelicId);
+  const other=relics[(idx+1)%relics.length];
+  if(!other || other.id===active.id){
+    toast("No valid fuse target");
+    return;
+  }
+  const fused=fuseRelics(active, other);
+  const d=dimensions[player.dimId];
+  mythPush(d, `Two laws fuse: ${fused.name} is born.`);
+  addJournal("Fusion rite complete. A new law forms. 🧩✨");
+}
+
+function fastTravelTo(id){
+  if(!dimensions[id]) return;
+  player.dimId = id;
+  const d = dimensions[id];
+  d.history.visits++;
+  d.history.fastTravels++;
+  d.history.lastVisitTick = tick;
+  mythPush(d, "Starlight carries you to " + d.name + ".");
+  toast("Fast travel: " + d.name);
+}
+
+// ===== Journal =====
+function addJournal(line){
+  journal.unshift(line);
+  if(journal.length > 20) journal.pop();
+}
+
+// ===== Save/Load (RLE tiles) =====
+function rleEncodeTiles(tiles){
+  const rows=[];
+  for(let y=0;y<SIZE;y++){
+    let row="";
+    let last=tiles[y][0].t;
+    let count=1;
+    for(let x=1;x<SIZE;x++){
+      const t=tiles[y][x].t;
+      if(t===last) count++;
+      else { row += last+":"+count+","; last=t; count=1; }
+    }
+    row += last+":"+count;
+    rows.push(row);
+  }
+  return rows;
+}
+function rleDecodeTiles(rows){
+  const tiles=[];
+  for(let y=0;y<SIZE;y++){
+    tiles[y]=[];
+    const parts=(rows && rows[y] ? rows[y] : "0:"+SIZE).split(",");
+    let x=0;
+    for(const p of parts){
+      const [tv,cv]=p.split(":");
+      const t=parseInt(tv,10);
+      const c=parseInt(cv,10);
+      for(let i=0;i<c;i++){
+        tiles[y][x]=makeTile(t);
+        tiles[y][x].h = (t===VOID?0:0.5);
+        x++;
+        if(x>=SIZE) break;
+      }
+      if(x>=SIZE) break;
+    }
+    while(x<SIZE){ tiles[y][x]=makeTile(VOID); x++; }
+  }
+  return tiles;
+}
+function exportDimensions(){
+  const out={};
+  for(const [id,d] of Object.entries(dimensions)){
+    out[id]={
+      id:d.id, name:d.name, temperament:d.temperament, biome:d.biome,
+      portals:d.portals, portalBack:d.portalBack,
+      myths:d.myths, history:d.history,
+      tiles:rleEncodeTiles(d.tiles),
+      entities:d.entities
+    };
+  }
+  return out;
+}
+function importDimensions(obj){
+  dimensions={};
+  for(const [id,raw] of Object.entries(obj||{})){
+    dimensions[id]={
+      id:raw.id, name:raw.name, temperament:raw.temperament, biome:raw.biome,
+      tiles:rleDecodeTiles(raw.tiles),
+      entities:raw.entities||[],
+      portals:raw.portals||[],
+      portalBack:raw.portalBack||null,
+      myths:raw.myths||null,
+      history:raw.history||{visits:0, linger:0, touches:0, templeRites:0, fastTravels:0, gravity:0, lastVisitTick:0},
+      discovered:true
+    };
+  }
+}
+
+function save(){
+  const payload={
+    seedStr, tick, pulse,
+    player, travelSig, journal,
+    sigils, links,
+    relics, activeRelicId,
+    echoUnlocked,
+    dimensions: exportDimensions()
+  };
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); toast("Saved ✅"); }
+  catch(e){ toast("Save failed (storage?)"); }
+}
+function load(){
+  const raw=localStorage.getItem(STORAGE_KEY);
+  if(!raw) return false;
+  try{
+    const p=JSON.parse(raw);
+    seedStr=p.seedStr||seedStr;
+    tick=p.tick||0;
+    pulse=p.pulse||0;
+    Object.assign(player, p.player||player);
+    travelSig=p.travelSig||travelSig;
+    journal=p.journal||[];
+    sigils=p.sigils||{};
+    links=p.links||[];
+    relics=p.relics||[];
+    activeRelicId=p.activeRelicId||null;
+    echoUnlocked=!!p.echoUnlocked;
+    importDimensions(p.dimensions||{});
+    if(echoUnlocked && !dimensions["echo"]) createDimension("echo", null, null, true);
+    toast("Loaded ✅");
+    return true;
+  }catch(e){ return false; }
+}
+
+function resetAll(){
+  localStorage.removeItem(STORAGE_KEY);
+  seedStr="ELYTHIA-"+Math.floor(Math.random()*1e9);
+  tick=0; pulse=0;
+  showMap=false; showMyths=false; showRelics=false;
+  journal=[];
+  sigils={};
+  travelSig={steps:0, temples:0, jumps:0, linger:0, scentA:0.2, scentB:0.2, scentC:0.2};
+  links=[];
+  relics=[];
+  activeRelicId=null;
+  echoUnlocked=false;
+  dimensions={};
+  player.x=Math.floor(SIZE/2); player.y=Math.floor(SIZE/2); player.mode="world"; player.dimId="root";
+  bootFresh();
+  toast("Reset 🧼");
+}
+
+// ===== Boot =====
+function bootFresh(){
+  createDimension("root", null, null, false);
+  const root=dimensions["root"];
+  root.history.visits=1;
+  root.history.lastVisitTick = tick;
+  root.myths=[mythSeedLine(root)];
+
+  // temple near spawn
+  const r=rngFor("root-temple");
+  const tx=clamp(player.x+((r()*10)|0)-5,0,SIZE-1);
+  const ty=clamp(player.y+((r()*10)|0)-5,0,SIZE-1);
+  root.tiles[ty][tx].t=TEMPLE;
+  if(!findPortalAt(root,tx,ty)) root.portals.push({x:tx,y:ty,target:null});
+
+  addJournal("Swipe to move. Double-tap temples. Triple-tap Relics button to FUSE. 👁️");
+}
+
+if(!load()){
+  bootFresh();
+} else {
+  if(!dimensions["root"]) bootFresh();
+  addJournal("Welcome back to Elythia ✨");
+  if(relics.length && !activeRelicId) activeRelicId=relics[0].id;
+}
+
+// ===== Main Loop =====
+let last=performance.now();
+let acc=0;
+const step=1000/30;
+
+function loop(t){
+  const dt=t-last; last=t;
+  acc+=dt;
+
+  while(acc>=step){
+    tick++;
+    pulse += 0.02;
+
+    const active=dimensions[player.dimId];
+    if(active){
+      active.history.linger += 0.06;
+      travelSig.linger += 0.06;
+      active.history.gravity = computeGravity(active);
+
+      evolveDimension(active, true);
+      relicChargeTick(active);
+
+      updateScent(active.biome, 0.004);
+
+      // unlock logic
+      if(tick%90===0) checkEchoUnlock();
+    }
+
+    // background evolve
+    const ids=Object.keys(dimensions);
+    for(let i=0;i<2;i++){
+      if(ids.length<2) break;
+      const id=ids[(Math.random()*ids.length)|0];
+      if(id!==player.dimId) evolveDimension(dimensions[id], false);
+    }
+
+    if(tick%180===0) computeLinks();
+
+    acc-=step;
+  }
+
+  drawWorld();
+  if(showMap) drawStarMap();
+  if(showMyths) drawMythsPanel();
+  if(showRelics) drawRelicsPanel();
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// autosave
+setInterval(()=>save(), 9000);
+
+// stub for missing function (appears in original but not defined)
+function computeLinks(){}
+</script>
+</body>
+</html>
