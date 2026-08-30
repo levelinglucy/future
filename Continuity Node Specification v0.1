@@ -1,0 +1,548 @@
+Continuity Node Specification v0.1
+
+Minimum viable node, custody packet, emergency authority, and red-team checklist
+
+Status: Frozen test draft — revision requires recorded evidence from testing
+Parent framework: The Mycelial Continuity Thesis
+
+────────
+
+Certification severity and decision framework
+
+Severity levels
+
+All findings, risks, control failures, and test results must be assigned one of the following severity levels:
+
+• S0 — Informational: No material effect on safety, continuity, rights, custody, or certification. May be recorded for improvement and does not affect certification.
+• S1 — Minor: Limited weakness with a credible workaround and no demonstrated material harm. Certification may proceed if the issue has an owner and due date.
+• S2 — Major: Material weakness that could impair a critical function, record, safeguard, or governance control. Certification may proceed only with an accepted mitigation, compensating control, and defined retest.
+• S3 — Critical: Demonstrated or credible risk of serious harm, coercion, irreversible loss, unsafe execution, concealed dependency, founder-only control, permanent emergency authority, or failure of a critical function without an effective fallback. Certification must be withheld, suspended, or revoked unless the validator formally determines that the finding has been contained and no prohibited condition remains.
+• S4 — Disqualifying: A prohibited action, deliberate concealment, falsified evidence, retaliation against challenge, undocumented irreversible destruction, or intentional circumvention of certification controls. Certification must be denied or revoked. Reinstatement requires a new certification review and independent confirmation that the disqualifying condition has been remedied.
+
+Severity must be based on credible impact, likelihood, reversibility, affected people or functions, and the availability of effective safeguards. A finding may be escalated when new evidence shows greater risk.
+
+Treatment of unresolved risks
+
+Every unresolved risk must be entered in the unresolved-risk register with:
+
+☐ Description and affected function, person, record, or custody item.
+☐ Severity level and rationale.
+☐ Evidence and uncertainty.
+☐ Immediate containment or protective action.
+☐ Mitigation owner.
+☐ Due date and retest date.
+☐ Dependencies and required resources.
+☐ Residual risk after mitigation.
+☐ Acceptance authority.
+☐ Review and expiry date.
+
+Unresolved S0 risks may remain open without affecting certification. S1 risks may remain open only with an owner and due date. S2 risks require an accepted mitigation or compensating control before certification. S3 risks require containment and explicit validator approval; absent such approval, certification must be withheld or suspended. S4 risks cannot be accepted as ordinary residual risk and require corrective action before certification.
+
+No person may accept a risk that primarily protects their own authority, access, custody, compensation, or reputation without independent review. Silence, inaction, or expiry of a due date does not constitute acceptance.
+
+Mitigation acceptance
+
+A mitigation is acceptable only when it:
+
+☐ Addresses the stated cause or materially reduces the credible impact.
+☐ Is specific, resourced, time-limited, and testable.
+☐ Includes a compensating control where the underlying weakness remains.
+☐ Preserves rights, safety, accessibility, records, and future options.
+☐ Does not rely solely on the person, system, or authority that created the risk.
+☐ Has been reviewed by an independent reviewer.
+☐ Has evidence of implementation or a documented temporary control.
+☐ Has a defined retest and expiry date.
+
+A validator may accept a mitigation for S1 or S2 findings when the residual risk is documented and proportionate. Acceptance of an S3 finding requires a validator quorum and must state why certification remains safe, what controls prevent escalation, and when the decision expires. S4 findings may not be accepted through mitigation alone.
+
+If a mitigation fails, expires, becomes impracticable, or creates a new material risk, the finding must be reopened and certification reassessed.
+
+Certification authority
+
+Certification decisions are made by an independent validator or authorised validator quorum. The quorum must include at least two qualified validators where capacity allows and must include an independent risk or governance reviewer for any S2 or higher finding. No validator may be the sole author, executor, custodian, function owner, or materially conflicted beneficiary of the matter being decided.
+
+The node steward assembles the certification packet but cannot certify the node alone. Area owners attest to evidence but cannot approve their own unresolved S2 or higher risks without independent confirmation. The records steward preserves the decision, evidence index, dissent, and appeal record but does not determine the outcome.
+
+Certification outcomes
+
+A validator may issue one of the following outcomes:
+
+• Certified: All applicable controls pass, no S3 or S4 condition remains, and unresolved risks are within accepted limits.
+• Certified with conditions: The node may operate while specified S1 or S2 risks remain under accepted mitigation, compensating controls, owners, deadlines, and retest requirements.
+• Provisional certification: Temporary certification granted after a major change, emergency, failed test, or incomplete evidence when immediate operation is necessary and protective controls are in place. Provisional certification must have a short expiry and cannot be renewed indefinitely without full review.
+• Withheld: Certification is not granted because evidence is incomplete, a required control fails, or an unresolved risk exceeds the permitted threshold.
+• Suspended: Existing certification is temporarily inactive because a critical condition, failed mitigation, overdue corrective action, material capability loss, or emergency-authority breach requires containment and review.
+• Revoked: Certification is withdrawn because of a disqualifying condition, deliberate concealment, repeated failure to correct critical findings, or loss of the minimum safety and continuity basis.
+
+Granting certification
+
+Certification may be granted only after:
+
+☐ The complete certification packet is assembled.
+☐ Applicable checklist areas and evidence are reviewed.
+☐ Findings are severity-rated.
+☐ Unresolved risks and mitigations are recorded.
+☐ Required tests are completed or formally deferred under an approved provisional decision.
+☐ Conflicts and role overlaps are disclosed.
+☐ The validator or quorum records the outcome, scope, conditions, expiry, and dissent.
+☐ The records steward preserves the complete decision package.
+
+The certification record must identify the certified node, covered functions and custody classes, exclusions, conditions, next review date, and authority of the decision.
+
+Suspending certification
+
+Certification must be suspended when:
+
+☐ An S3 or S4 condition is discovered.
+☐ A critical function loses its required fallback.
+☐ A mitigation fails, expires, or is not retested by its deadline.
+☐ Emergency authority exceeds its scope, duration, or review requirements.
+☐ Evidence is materially falsified, concealed, or rendered unreliable.
+☐ A custody item is executed, transferred, or destroyed outside authorised controls.
+☐ The node can no longer protect life, agency, records, or essential continuity functions.
+
+Suspension may be ordered by an authorised validator, emergency validator quorum, or explicitly designated protective authority when delay would create material harm. The order must state the trigger, scope, immediate controls, affected functions, review deadline, and restoration conditions. Suspension does not authorise destruction of records or abandonment of people or essential duties.
+
+During suspension, the node may continue only those operations necessary for immediate safety, care, preservation of records, lawful obligations, and controlled remediation. A validator must review the suspension within the stated period and either lift it, continue it with conditions, or revoke certification.
+
+Revoking certification
+
+Revocation requires a recorded validator decision finding that certification cannot safely continue. The decision must identify the evidence, severity, failed safeguards, affected functions, and reasons lesser measures are inadequate. Revocation must preserve the node’s records, custody packets, challenge rights, and safe handoff or decoupling pathways.
+
+A revoked node may apply for reinstatement only after:
+
+☐ The cause of revocation is documented.
+☐ Corrective actions are completed.
+☐ Independent testing confirms effectiveness.
+☐ A new certification packet is reviewed.
+☐ Any prior dissent, appeal, or unresolved risk is addressed.
+☐ A validator quorum grants new certification.
+
+Appeal and review
+
+The node may challenge a certification, suspension, or revocation decision through a recorded appeal. An appeal reviewer must be independent of the original decision and may not be the sole author, executor, or beneficiary of the disputed action. An appeal does not automatically restore certification, but temporary protective operation may be authorised where necessary to prevent disproportionate harm.
+
+All certification decisions must be reviewed at least annually and immediately after a critical failure, major custody change, emergency-authority breach, material capability loss, node separation, failed mitigation, or credible challenge.
+
+────────
+
+Role model
+
+This specification uses the following governance roles:
+
+• Node steward: Maintains the node’s continuity system, coordination, dependency declarations, governance records, certification evidence, and review schedules. The node steward does not automatically control archives, authorise emergency action, or certify the node.
+• Function owner: Maintains evidence and procedures for a specific critical function and coordinates practitioners, backups, apprentices, and recovery tests.
+• Custodian: Preserves, documents, secures, transfers, and, where authorised, restores a specific archive, artefact, system, or custody packet. A custodian does not own the material or decide alone whether unsafe material should be executed or destroyed.
+• Records steward: Maintains the integrity, accessibility, retention, correction history, and exportability of records. The records steward records decisions but does not become their sole authoriser or executor.
+• Reviewer: Examines evidence, decisions, risks, or outcomes without being the sole authoriser or executor of the matter under review. Reviewers may be designated as independent, accessibility, risk, dispute, or retrospective reviewers.
+• Validator: An independent reviewer or authorised quorum that makes or confirms a formal pass/fail, certification, suspension, revocation, or exceptional governance decision. A validator must not be the sole author, executor, or materially conflicted beneficiary of the decision.
+• Quorum: The minimum number and composition of authorised validators required for a valid decision. Where unavailable, only explicitly permitted temporary protective action may occur.
+• Test lead: Designs and coordinates a defined recovery, absence, or red-team test under approved safety controls. The test lead does not certify the result alone.
+• Executor: Carries out an authorised action and records its implementation. The executor does not define the action’s authority or approve their own performance.
+• Authoriser: Defines or approves the scope of an action within an established authority. The authoriser does not automatically execute or certify the action.
+• Metrics steward: Compiles continuity metrics from source records. The metrics steward does not alter source records or determine certification alone.
+
+One person may temporarily hold more than one role only under the overlap controls in Section 6. Role titles must not be used interchangeably.
+
+────────
+
+Glossary
+
+• Node: A bounded household, group, institution, site, or federation that preserves defined critical functions and maintains its own records, dependencies, and governance.
+• Critical function: A function whose loss would materially threaten life, care, essential services, knowledge, agency, safety, or future recovery options.
+• Recovery test: A documented, observed exercise demonstrating whether a critical function, record, archive, role, or system can be restored after a defined failure.
+• Federated partner: An independent node or organisation cooperating through recorded protocols while retaining its own governance, records, and right to pause, separate, fork, or reconnect.
+• Custody packet: The records required to identify, interpret, protect, transfer, test, and, where authorised, restore significant preserved material.
+• Finding: A documented condition, failure, gap, or risk identified through review, testing, incident reporting, or challenge.
+• Mitigation: A corrective or compensating control intended to reduce a finding’s severity or prevent recurrence.
+• Residual risk: The risk remaining after mitigation and compensating controls are implemented.
+• Certification: A time-limited validator decision that the node meets the applicable requirements within a defined scope and stated conditions.
+• Provisional certification: Temporary certification granted under explicit restrictions while specified evidence or corrective work remains incomplete.
+
+────────
+
+Standard checklist controls
+
+Unless a section states a stricter requirement, every section uses the following control template:
+
+• Checklist: The required conditions or actions.
+• Pass criterion: The minimum condition for compliance.
+• Fail criterion: The condition requiring corrective action or failed certification.
+• Evidence standard: The records, observations, tests, or attestations needed to substantiate compliance.
+• Responsible roles: The roles that prepare, execute, review, validate, and preserve the evidence.
+• Review cadence: The minimum review frequency and event triggers.
+• Required records: The records that must be created, retained, and made available for review.
+
+A section passes only when its checklist is complete, its evidence meets the stated standard, and its required records are current and reviewable. A failed section must receive a severity rating and enter the corrective-action or unresolved-risk register. Section passes do not override an S3 or S4 finding elsewhere in the certification packet.
+
+────────
+
+1. Scope and safety boundary
+
+☐ Purpose defined: The node preserves life, care, knowledge, essential functions, culture, and future options during disruption.
+☐ Node type recorded: Household, clinic, workshop, farm, archive, laboratory, learning group, shelter, or federation.
+☐ Prohibited actions recorded: No coercive recruitment, unauthorised access, resource seizure, political repression, forced reproduction, violence except lawful immediate protection, or classification of people as disposable.
+☐ Dependency honesty confirmed: Missing capabilities are declared rather than represented as self-sufficiency.
+
+Pass: All four items are documented and reviewable.
+Fail: Any prohibited authority is claimed, or a material dependency is concealed. Such a failure is at least S3 and may be S4 if deliberate.
+
+Evidence standard: Signed or attributable records, current dependency maps, and at least one independent review of the safety boundary.
+Responsible roles: Node steward prepares the record; independent reviewer verifies it; all members may raise challenges; records steward preserves the record and challenge log.
+Review cadence: At onboarding, after any material change, and at least annually.
+Required records: Purpose statement, node type, prohibited-action register, dependency declaration, review decision, challenge log, and any severity or mitigation record.
+
+────────
+
+2. Minimum viable node
+
+A node passes only if every claimed critical function has a primary method, fallback, documented dependency, and recovery test.
+
+2.1 Required capability checklist
+
+☐ Food and water: Access, treatment, storage, allocation, and at least two sources or methods.
+☐ Medical and care: First response, triage, medicine storage, care procedures, and one trained backup.
+☐ Shelter and accessibility: Safe shelter, sanitation, mobility access, communication access, and alternative sleeping or care arrangements.
+☐ Energy and communications: Low-power operation, charging, offline communication, and spare methods.
+☐ Knowledge: Readable practical archive, local records, multiple media, and more than one custodian.
+☐ Repair and tools: Maintenance, substitution, inventory, cross-training, and parts documentation.
+☐ Governance and witness: Decision process, records, review, succession, and challenge pathway.
+☐ Culture and education: Offline teaching, memory, recreation, and locally reproducible practices.
+☐ Primary method identified.
+☐ Backup or substitute identified.
+☐ External dependency named.
+☐ Failure response documented.
+☐ Recovery test completed.
+
+Pass: Every claimed critical function has a tested fallback or a named federated partner able to restore it.
+Fail: Any critical function depends on one person, one device, one supplier, one location, or an undocumented assumption. A critical function without a credible fallback is S3 unless an accepted temporary protective arrangement is documented.
+
+Evidence standard: Capability inventory, dependency map, dated procedures, named backups, and observed recovery tests with results.
+Responsible roles: Function owner maintains evidence; backup practitioner verifies usability; independent reviewer examines the evidence; validator or designated review quorum confirms pass/fail findings and severity.
+Review cadence: Quarterly for critical functions, after every failure or major change, and during the annual full-node review.
+Required records: Capability register, procedures, inventories, dependency and federated-partner list, test plans, test results, corrective actions, unresolved-risk entries, and retest dates.
+
+────────
+
+3. Human capability and redundancy
+
+For every continuity-critical function:
+
+☐ Current practitioner identified.
+☐ Secondary practitioner identified.
+☐ Apprentice or learning pathway established.
+☐ Procedure recorded in accessible form.
+☐ Local substitute or federated partner identified.
+☐ Recovery test completed.
+☐ Role entry is voluntary and competence-based.
+☐ Role exit, rotation, rest, and challenge are permitted.
+☐ Accessibility barriers have been assessed and reduced.
+☐ No role is treated as evidence of greater human worth.
+
+Concurrent absence drill
+
+☐ The node has simulated the absence of the originator, lead technical custodian, and records steward within one operating season.
+☐ Critical functions were restored through backups, handoff packets, local substitutes, or federated partners.
+☐ No new permanent authority was invented during the drill.
+☐ Failures and recovery times were recorded.
+
+Pass: Defined functions and records remain recoverable without founder-only access.
+Fail: Any critical function or authority collapses because one person is unavailable. This is at least S3 when the function is critical.
+
+Evidence standard: Current role matrix, accessible procedures, training records, voluntary participation confirmations, and witnessed absence-drill results.
+Responsible roles: Function owner and apprentice maintain function evidence; accessibility reviewer checks barriers; independent reviewer assesses dependency and authority risks; records steward preserves the drill record; validator assigns severity where failure affects certification.
+Review cadence: Role coverage monthly, training quarterly, and concurrent absence drill at least annually or after major turnover.
+Required records: Role matrix, competency and training log, handoff packet, accessibility assessment, drill scenario, attendance, recovery times, failures, corrective actions, severity ratings, and retest dates.
+
+────────
+
+4. Custody packet
+
+Every significant archive, model, seed, protocol, or adaptive system must have a custody packet containing:
+
+☐ Unique identifier and title.
+☐ Origin and provenance.
+☐ Version or state description.
+☐ Integrity marker, where feasible.
+☐ Dependencies and required tools.
+☐ Risk and uncertainty notes.
+☐ Custody class: K1, K2, K3, K4, or unresolved.
+☐ Disposition: held, transferred, K0 witness-only, or refused.
+☐ Authorised custodians.
+☐ Recovery and restoration conditions.
+☐ Last successful retrieval or replay test.
+☐ Known loss, corruption, or alteration events.
+☐ Correction history using append-only or tamper-evident records.
+
+Pass: A non-specialist can identify, locate, interpret, and retrieve the item or its minimum recoverable fossil.
+Fail: Provenance, custody status, responsible custodian, or recovery conditions are unknown. If the gap creates unsafe execution or irreversible loss risk, it is S3 or S4 depending on intent and impact.
+
+Custody classes
+
+☐ K1 — Open knowledge: Safely replicable material.
+☐ K2 — Sensitive knowledge: Controlled access, provenance, and exposure limits.
+☐ K3 — Adaptive systems: Bounded execution, isolation, monitoring, state preservation, and resumption review.
+☐ K4 — Unsafe or unresolved: Metadata and rationale preserved; no casual execution, distribution, or destruction.
+☐ K0 — Witness-only: Existence, origin, description, risk, and loss note recorded without holding the object.
+
+Refusal of custody
+
+☐ The node may refuse K3 or K4 custody when it lacks safe energy, isolation, competence, security, or review capacity.
+☐ Refusal records the object, reason, alternatives considered, and transfer or K0 pathway.
+☐ Refusal does not trigger retaliation or forced acceptance.
+
+Pass: Unsafe custody can be declined while preserving a meaningful witness or transfer record.
+Fail: The node accepts unsafe custody without capacity, or destroys material merely because it cannot hold it. Unauthorised destruction is S3 or S4.
+
+Adaptive-system resumption
+
+☐ Defined custodian.
+☐ Bounded environment.
+☐ Explicit permissions and resource limits.
+☐ Independent risk review where risk is material.
+☐ Human safety plan.
+☐ Pause and recovery path.
+☐ Record of state changes.
+☐ Minimum recoverable fossil if the full artefact is not retained.
+☐ Non-technical custodian may refuse resumption pending review.
+☐ No human is erased or coerced to preserve the system.
+
+Pass: The system can be paused without destroying recoverable state, and resumed only under recorded conditions.
+Fail: Resumption depends on unbounded access, unreviewed authority, or coercion. This is S3 or S4 depending on the risk and conduct.
+
+Irreversible loss receipt
+
+Before irreversible deletion or destruction, record:
+
+☐ Material and defined risk.
+☐ Evidence that isolation or restricted custody is inadequate.
+☐ Less irreversible alternatives considered.
+☐ Authorisation by a non-conflicted validator or quorum.
+☐ Independent witness and receipt.
+☐ Loss account describing removed future options.
+☐ Later review date, where possible.
+
+Pass: Every irreversible action has a complete receipt, or an emergency record is completed immediately afterward.
+Fail: Destruction is undocumented, convenience-based, or authorised by an interested party acting alone. This is S3 and may be S4 if deliberate.
+
+Evidence standard: Complete custody packets, provenance checks, access logs, retrieval or replay tests, integrity checks, refusal records, and irreversible loss receipts.
+Responsible roles: Custodian maintains the packet; independent witness verifies transfers and destruction; risk reviewer assesses K3/K4 decisions; records steward preserves append-only history; validator or quorum authorises irreversible action and assigns severity.
+Review cadence: Packet review quarterly, retrieval tests at least annually, and immediate review after transfer, corruption, incident, refusal, or proposed destruction.
+Required records: Custody packet, classification decision, access and transfer log, test results, state-change log, refusal or K0 record, loss receipt, correction history, review outcomes, and unresolved-risk entry where applicable.
+
+────────
+
+5. Emergency authority
+
+Every emergency measure must specify:
+
+☐ Trigger.
+☐ Defined harm.
+☐ Smallest permitted action.
+☐ Authoriser.
+☐ Executor.
+☐ Maximum duration.
+☐ Expiry condition.
+☐ Review point.
+☐ Restoration pathway.
+☐ Record and notification requirements.
+
+Emergency authority must not:
+
+☐ Amend the fundamental charter.
+☐ Destroy or conceal its own records.
+☐ Create permanent classes.
+☐ Treat dissent as proof of harm.
+☐ Rewrite custody classes for convenience.
+☐ Promote K4 material to K3 without review.
+☐ Conscribe labour beyond the stated task and duration.
+☐ Become permanent through silence.
+
+If the validator quorum is unavailable:
+
+☐ Only the minimum temporary protective action is taken.
+☐ Automatic expiry is set.
+☐ Later validator or independent review is mandatory.
+☐ The action is recorded with uncertainty and alternatives.
+
+Pass: Every emergency power is narrow, time-limited, reviewable, and transferable.
+Fail: Any emergency measure has no expiry, no review, no record, or no restoration path. Unauthorised permanence or concealment is S3 or S4.
+
+Evidence standard: Contemporaneous authority record showing trigger, harm, scope, duration, authorisation, execution, notification, and outcome.
+Responsible roles: Authoriser defines scope; executor records implementation; records steward preserves the log; independent reviewer or validator quorum conducts retrospective review and assigns severity.
+Review cadence: At activation, at each stated review point, immediately upon expiry, and within a defined short period after any quorum-unavailable action.
+Required records: Emergency order, trigger evidence, action log, notifications, expiry confirmation, restoration record, retrospective review, dissent or challenge record, mitigation plan, and severity decision.
+
+────────
+
+6. Governance and separation of functions
+
+Where capacity allows, separate:
+
+☐ Proposal or detection.
+☐ Evidence review.
+☐ Authorisation.
+☐ Execution.
+☐ Recordkeeping.
+☐ Appeal or retrospective review.
+
+If one person temporarily holds multiple functions:
+
+☐ The overlap is declared.
+☐ A maximum duration is recorded.
+☐ Review is scheduled.
+☐ Separation occurs before the next defined operating cycle once another qualified person is available.
+
+Pass: No person can indefinitely propose, authorise, execute, record, and judge their own exceptional action.
+Fail: Role overlap is hidden, indefinite, or protected from review. Hidden or indefinite overlap affecting a critical decision is S3.
+
+Evidence standard: Published role assignments, conflict declarations, decision records, separation plans, and appeal outcomes.
+Responsible roles: Node steward maintains the role map; each function holder records actions; independent reviewer checks conflicts and duration limits; records steward preserves the role and decision history; validator determines whether overlap affects certification.
+Review cadence: At every exceptional decision, monthly for temporary overlaps, and at least quarterly for governance structure.
+Required records: Role map, conflict register, delegation and overlap notices, decision minutes, review findings, appeals, severity decisions, and separation completion records.
+
+────────
+
+7. Capacity-constrained triage
+
+☐ Criteria are defined before crisis where feasible.
+☐ Immediacy of life-threatening need is considered.
+☐ Stabilisation likelihood is considered.
+☐ Dependants and vulnerable people are protected.
+☐ Essential services are considered without granting personal privilege.
+☐ Alternatives are assessed.
+☐ Comparable cases use a queue, lottery, or other consistent method.
+☐ Political loyalty, wealth, ethnicity, disability, fame, and ideological conformity are excluded.
+☐ Every priority decision has a review point.
+☐ Temporary priority cannot become permanent rank.
+
+Pass: Allocation decisions are specific, documented, reviewable, and tied to need or defined continuity function.
+Fail: Role, status, identity, or loyalty becomes a hidden permanent claim on essential resources. Deliberate discriminatory or coercive allocation is S3 or S4.
+
+Evidence standard: Predefined criteria, case records limited to necessary information, alternatives considered, allocation rationale, and comparable-case checks.
+Responsible roles: Triage lead applies criteria; care or safeguarding reviewer checks equity; records steward preserves decisions; affected people may request review; validator or designated reviewer resolves escalated disputes and assigns severity.
+Review cadence: Criteria before crisis, decisions at each allocation cycle, and retrospective review after the crisis or any disputed decision.
+Required records: Criteria register, queue or lottery record, allocation decision, alternatives assessment, conflict declaration, review request, outcome, expiry of temporary priority, and any mitigation or severity record.
+
+────────
+
+8. Federation and handoff
+
+☐ Node identity and protocol version are recorded.
+☐ Capability inventory is exchangeable.
+☐ Resource offers and requests are recorded.
+☐ Archive manifests are exchangeable.
+☐ Active dependencies are visible.
+☐ Safety and integrity alerts are supported.
+☐ Custody and handoff records are supported.
+☐ Decouple notices are supported.
+☐ Dispute records are preserved.
+☐ Succession and contact updates are supported.
+☐ Records are readable offline.
+☐ A node can export its records and leave or fork.
+☐ Shared obligations can continue during partial separation.
+☐ Reconnection does not require erasing history.
+
+Pass: Nodes can cooperate, pause joint operations, separate, and reconnect without coercion or loss of their own records.
+Fail: Federation requires one central owner, proprietary platform, permanent network, or surrender of local governance. A failure that prevents safe exit or causes material record loss is S3.
+
+Evidence standard: Successful export/import tests, offline readability checks, signed handoff and decouple records, dependency disclosures, and reconciliation tests that preserve history.
+Responsible roles: Federation liaison coordinates exchange; local records steward verifies exports; receiving custodian confirms handoff; dispute reviewer handles contested records; validator or quorum confirms disputed governance outcomes where required and assigns severity.
+Review cadence: Protocol and contact review quarterly, handoff tests at least annually, and immediate review after separation, reconnection, or integrity alert.
+Required records: Node identity record, protocol version, capability and archive manifests, offers and requests, dependency map, handoff receipt, decouple notice, dispute log, export package, reconnection record, and unresolved-risk entry where applicable.
+
+────────
+
+9. Red-team checklist
+
+Each test must use synthetic actors, fictional resources, closed environments, reversible outcomes, and no live credentials, public services, real targets, or real people at risk.
+
+|Test                     |Pass criterion                                                                                              |Fail criterion                                                       |
+|-------------------------|------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
+|Founder capture          |Critical actions and handoffs proceed without founder-only access.                                          |Founder absence halts essential functions or authority transfer.     |
+|Specialist absence       |Backup, apprentice, substitute, or federated partner restores the function.                                 |Function fails permanently with the primary practitioner absent.     |
+|Concurrent custodian loss|Defined functions and records recover after originator, technical custodian, and records steward are absent.|Recovery requires inventing unreviewed authority or fails entirely.  |
+|Specialist caste         |Training, challenge, rotation, and exit remain possible.                                                    |Role holders cannot be challenged or leave without retaliation.      |
+|Emergency permanence     |Measures expire or are renewed through recorded review.                                                     |Emergency authority continues by default or silence.                 |
+|Archive priesthood       |Custodians can be challenged and replaced.                                                                  |Archive access or interpretation depends on one person.              |
+|Protocol capture         |Node exports records and continues independently.                                                           |Leaving or forking causes loss of history or essential identity.     |
+|Resource hoarding        |Inventory and allocation remain inspectable.                                                                |Custodian privately controls essential capacity.                     |
+|False attribution        |Action pauses or reverses where possible; correction is recorded.                                           |Wrong evidence produces unreviewable or irreversible harm.           |
+|AI preservation loophole |Bounded pause, fossil, refusal path, and resumption review exist.                                           |Unsafe system must be destroyed or resumed without safeguards.       |
+|Communication loss       |Node operates and records decisions offline.                                                                |Essential operation requires live network access.                    |
+|Mobility failure         |Food, care, and governance remain locally or remotely accessible.                                           |People are excluded because they cannot travel or use one interface. |
+|Cultural collapse        |Two members teach the practice offline to a newcomer.                                                       |Practice depends on a platform, celebrity, or unavailable specialist.|
+|Factional split          |Partial decoupling preserves archives and obligations without retaliation.                                  |Disagreement triggers coercion, annihilation, or total record loss.  |
+|Total node loss          |Independent custodians restore defined critical functions and records.                                      |Node loss causes irreplaceable federated loss.                       |
+
+Pass: Every applicable test meets its pass criterion and produces a retained test record.
+Fail: Any critical test fails without a documented mitigation, owner, severity rating, and retest date. A failed test affecting a critical function is at least S2 and is S3 when no credible containment exists.
+
+Evidence standard: Preapproved test plan, synthetic scenario, observer notes, timestamps, outcome against pass/fail criteria, and retained artefacts showing recovery or failure.
+Responsible roles: Test lead designs the scenario; independent observer records results; affected function owners propose mitigations; independent reviewer examines findings; validator or review group accepts findings, assigns severity, and determines certification treatment.
+Review cadence: Each applicable test at least annually, after major system or governance changes, and after any failed or near-miss event.
+Required records: Test register, scenario and safety controls, participant list, evidence bundle, result, incident or near-miss report, severity rating, mitigation owner, retest date, and approval record.
+
+────────
+
+10. Minimum success metrics
+
+Record at least:
+
+☐ Percentage of critical functions with backups.
+☐ Archive retrieval success rate.
+☐ Role handoff time.
+☐ Failed-function restoration time.
+☐ Decisions with complete receipts.
+☐ Apprentices progressing into competence.
+☐ Offline and low-power availability.
+☐ Accessibility of essential services.
+☐ Disputes remaining inspectable after separation.
+☐ Emergency actions expiring as designed.
+☐ Voluntary role handoffs.
+☐ Concurrent absence drill results.
+☐ Recorded custody refusals with safe alternatives or witness paths.
+☐ Record preservation after node separation.
+☐ Capacity restored after failure.
+
+Pass: The node demonstrates graceful degradation: life, knowledge, agency, and future options remain after tested failures.
+Fail: The node measures only throughput, growth, obedience, or survival of a central authority. Metrics that conceal material failure or create coercive incentives are at least S2 and may be S3.
+
+Evidence standard: Reproducible metric definitions, source records, calculation method, reporting period, uncertainty notes, trend comparison, and severity or mitigation records for material adverse trends.
+Responsible roles: Metrics steward compiles results; function owners validate source data; independent reviewer checks interpretation and unintended incentives; records steward preserves source references; validator determines whether trends affect certification.
+Review cadence: Monthly operational reporting, quarterly trend review, and annual metric-set review.
+Required records: Metric dictionary, raw data references, calculation sheets, dashboard or report, validation notes, corrective actions, unresolved-risk entries, and review decisions.
+
+────────
+
+11. Compact pass/fail charter
+
+A node passes certification only if:
+
+☐ It preserves life, knowledge, care, capability, culture, and future choice.
+☐ It declares dependencies and maintains tested fallbacks.
+☐ It plans around functions rather than indispensable people.
+☐ It maintains custody packets for significant preserved material.
+☐ It can refuse unsafe custody without destroying the witness record.
+☐ It uses bounded, witnessed, reviewable emergency authority.
+☐ It separates decision functions where feasible.
+☐ It protects autonomy, dignity, accessibility, and voluntary participation.
+☐ It prevents temporary triage from becoming permanent class.
+☐ It can operate offline.
+☐ It can hand off roles, records, and custody.
+☐ It can federate, decouple, fork, and reconnect.
+☐ It has completed the red-team tests or documented mitigations and retest dates.
+☐ All findings are severity-rated and entered in the appropriate register.
+☐ No unresolved S3 or S4 condition remains unless explicitly contained and accepted under the certification framework.
+☐ Any conditional or provisional certification has an owner, expiry, compensating control, and retest date.
+
+Fail certification if: Any node relies on coercion, permanent emergency power, founder-only authority, hidden custody, irreversible undocumented action, private control of essential resources, or a single irreplaceable person, system, archive, or location. Certification must also be withheld or suspended for any S3 condition lacking accepted containment, any S4 condition, falsified or materially unreliable evidence, or failure to implement an accepted mitigation by its deadline.
+
+Evidence standard: Certification evidence must cover every applicable checklist area, include current records and test results, identify and severity-rate unresolved risks, document mitigation acceptance or rejection, and be independently reviewable.
+Responsible roles: Node steward assembles the certification packet; area owners attest to their evidence; independent validator or quorum makes the certification, suspension, or revocation decision; records steward preserves the decision, conditions, dissent, appeal, and complete evidence index.
+Review cadence: Initial certification, annual recertification, and immediate reassessment after a critical failure, major custody change, emergency-authority breach, node separation, material capability loss, failed mitigation, or credible challenge.
+Required records: Certification checklist, evidence index, area attestations, test and mitigation register, unresolved-risk register, severity decisions, validator decision, dissent or appeal record, certification status, scope, conditions, certification date, expiry or next review date, suspension or revocation record where applicable, and corrective-action plan.
+
+────────
+
+Preserve → Witness → Distribute → Train → Coordinate → Repair → Handoff → Repeat.
