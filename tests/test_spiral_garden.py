@@ -73,5 +73,47 @@ class SpiralGardenBootstrapTests(unittest.TestCase):
             self.assertEqual(graph["nodes"][0]["score"], 2)
 
 
+    def test_symlinked_file_and_directory_are_excluded(self):
+        """Scanning a chosen tree must not read a file outside it through links."""
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp)
+            corpus = work / "chosen"
+            corpus.mkdir()
+            (corpus / "safe.txt").write_text("boop", encoding="utf-8")
+            outside = work / "outside"
+            outside.mkdir()
+            (outside / "secret.txt").write_text("boop", encoding="utf-8")
+            try:
+                (corpus / "leak.txt").symlink_to(outside / "secret.txt")
+                (corpus / "linked_dir").symlink_to(outside, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlinks unavailable on this platform")
+            output = work / "graph.json"
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPT), str(corpus), "--out", str(output)],
+                capture_output=True, text=True, timeout=15,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            graph = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual([n["location"] for n in graph["nodes"]], ["safe.txt"])
+
+    def test_nodes_are_sorted_for_reproducible_graphs(self):
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp)
+            corpus = work / "chosen"
+            corpus.mkdir()
+            for name in ("z.txt", "a.txt"):
+                (corpus / name).write_text("boop", encoding="utf-8")
+            output = work / "graph.json"
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPT), str(corpus), "--out", str(output)],
+                capture_output=True, text=True, timeout=15,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            graph = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(
+                [n["location"] for n in graph["nodes"]], ["a.txt", "z.txt"]
+            )
+
 if __name__ == "__main__":
     unittest.main()
