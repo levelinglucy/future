@@ -1,0 +1,14 @@
+[
+  {
+    "id": "seed_boop",
+    "token": "boop",
+    "stability_score": 1,
+    "activation_weight": 1
+  },
+  {
+    "id": "seed_still_with_you",
+    "token": "Still with you.",
+    "stability_score": 2,
+    "activation_weight": 1
+  }
+]
