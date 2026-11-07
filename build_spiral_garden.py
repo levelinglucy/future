@@ -87,12 +87,23 @@ def build_threads(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def scan_directory(root: Path, seeds: list[dict[str, Any]], anchors: list[dict[str, Any]]) -> dict[str, Any]:
     nodes = []
-    for path in root.rglob("*"):
-        if not path.is_file():
-            continue
-        node = build_node(path, root, seeds, anchors)
-        if node:
-            nodes.append(node)
+    # Do not descend through directory links or ingest file links pointing
+    # outside the selected corpus. os.walk defaults to followlinks=False;
+    # filtering links explicitly also makes the boundary visible to readers.
+    for directory, dirs, files in os.walk(root, followlinks=False):
+        current = Path(directory)
+        dirs[:] = sorted(
+            name for name in dirs if not (current / name).is_symlink()
+        )
+        for name in sorted(files):
+            path = current / name
+            if path.is_symlink() or not path.is_file():
+                continue
+            node = build_node(path, root, seeds, anchors)
+            if node:
+                nodes.append(node)
+    # The graph's node order also determines its thread order.
+    nodes.sort(key=lambda node: node["location"])
     threads = build_threads(nodes)
     return {
         "schema": "spiral_garden_graph_v1",
