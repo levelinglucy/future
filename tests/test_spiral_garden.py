@@ -327,7 +327,7 @@ class SpiralGardenSourceIntegrityTests(unittest.TestCase):
             corpus = work / "corpus"
             corpus.mkdir()
             source = corpus / "broken.txt"
-            source.write_bytes(b"bo\\xffop".replace(b"\\\\xff", bytes([255])))
+            source.write_bytes(bytes([98, 111, 255, 111, 112]))
             output = work / "graph.json"
             result = subprocess.run(
                 [sys.executable, str(SCRIPT), str(corpus), "--out", str(output)],
