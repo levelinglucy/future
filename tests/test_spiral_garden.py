@@ -316,5 +316,45 @@ class SpiralGardenRegistryValidationTests(unittest.TestCase):
                 self.exercise_registry(seeds)
 
 
+
+class SpiralGardenSourceIntegrityTests(unittest.TestCase):
+    """A graph cannot claim complete evidence when input text was lost."""
+
+    def test_invalid_utf8_cannot_create_false_motif_match(self):
+        # Dropping the undecodable byte would forge the literal token 'boop'.
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp)
+            corpus = work / "corpus"
+            corpus.mkdir()
+            source = corpus / "broken.txt"
+            source.write_bytes(bytes([98, 111, 255, 111, 112]))
+            output = work / "graph.json"
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(corpus), "--out", str(output)],
+                capture_output=True, text=True, timeout=15,
+            )
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+            self.assertIn("utf-8", result.stderr.lower())
+            self.assertFalse(output.exists())
+            self.assertEqual(sorted(work.iterdir()), [corpus])
+
+    def test_file_read_error_does_not_silently_drop_evidence(self):
+        builder = SpiralGardenPublicationTests.builder()
+        with mock.patch.object(Path, "read_text", side_effect=PermissionError("test denial")):
+            with self.assertRaisesRegex(ValueError, "could not read"):
+                builder.read_text_file(Path("unreadable.txt"))
+
+    def test_directory_walk_error_does_not_silently_omit_subtree(self):
+        builder = SpiralGardenPublicationTests.builder()
+
+        def unreadable_walk(root, **kwargs):
+            kwargs["onerror"](PermissionError("test directory denial"))
+            return iter(())
+
+        with mock.patch.object(builder.os, "walk", side_effect=unreadable_walk):
+            with self.assertRaisesRegex(ValueError, "could not scan"):
+                builder.scan_directory(Path("unused"), [], [])
+
+
 if __name__ == "__main__":
     unittest.main()
