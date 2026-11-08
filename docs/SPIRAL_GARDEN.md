@@ -65,7 +65,8 @@ registries produce the same graph structure.
 
 **Goal:** publish faithful, complete graph evidence from explicitly selected
 local text files, without overwriting source notes or earlier graphs.
-**Integration:** strict corpus-read validation is proposed on this branch;
+**Integration:** strict corpus-read validation is recorded in
+[PR #6](https://github.com/levelinglucy/future/pull/6);
 [registry-validation PR #5](https://github.com/levelinglucy/future/pull/5)
 and [complete-publication PR #4](https://github.com/levelinglucy/future/pull/4)
 are merged predecessors. **Validation:** see the implementation PR checks;
