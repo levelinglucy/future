@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import json
 import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -113,6 +114,34 @@ def scan_directory(root: Path, seeds: list[dict[str, Any]], anchors: list[dict[s
     }
 
 
+
+def write_graph_exclusive(out_path: Path, graph: dict[str, Any]) -> None:
+    """Publish only a complete graph, without replacing an existing path.
+
+    Stage a private file in the destination directory, then use an atomic,
+    exclusive hard link to publish the completed bytes. Never fall back to
+    copying: a mid-copy failure would expose a truncated destination. This
+    does not promise power-loss durability or hostile-filesystem protection.
+    """
+    fd, staged_name = tempfile.mkstemp(
+        prefix=".spiral-garden-", suffix=".tmp", dir=out_path.parent
+    )
+    staged_path = Path(staged_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump(graph, stream, indent=2, ensure_ascii=False)
+            stream.flush()
+            os.fsync(stream.fileno())
+        # Same-directory hard linking publishes complete bytes in one step.
+        # It fails if out_path already exists, including a symlink or an
+        # output created by another process after initial validation.
+        os.link(staged_path, out_path)
+    finally:
+        try:
+            staged_path.unlink()
+        except FileNotFoundError:
+            pass
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("root", help="Directory to scan")
@@ -139,13 +168,12 @@ def main() -> None:
     anchors = load_json((script_dir / args.anchors).resolve())
     graph = scan_directory(root, seeds, anchors)
 
-    # 'x' is exclusive even if another process created the path after our
-    # early check. Do not follow a last-moment symlink or replace old results.
     try:
-        with out_path.open("x", encoding="utf-8") as f:
-            json.dump(graph, f, indent=2, ensure_ascii=False)
+        write_graph_exclusive(out_path, graph)
     except FileExistsError:
         parser.error("--out already exists; choose a new output filename")
+    except OSError as exc:
+        parser.error(f"could not safely publish graph: {exc}")
     print(f"Wrote graph with {len(graph['nodes'])} nodes and {len(graph['threads'])} threads to {out_path}")
 
 
