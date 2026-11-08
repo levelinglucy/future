@@ -34,7 +34,11 @@ put the output **outside** the scanned tree: the command now refuses
 in-tree output to protect scanned source files. It also refuses an already
 existing destination (including symlinks) instead of replacing previous
 results. For subsequent scans, choose another filename or move the old graph
-yourself after reviewing it. Symlinked files could refer
+yourself after reviewing it. A complete JSON graph is first staged as a
+private file beside the destination, then published by an exclusive hard link.
+An ordinary serialization or write failure does not leave a partial graph
+at the requested output name. Filesystems without hard-link support fail
+safely instead of falling back to a partial copy. Symlinked files could refer
 outside a chosen directory. This version skips symlinked files and directories,
 so an ordinary link within the selected tree is not scanned or listed in output.
 The scanner does not protect against concurrent filesystem replacement/races or
@@ -44,26 +48,29 @@ registries produce the same graph structure.
 
 ## Development and change history
 
-**Goal:** protect a chosen text corpus from accidental modification during
-graph export, while retaining the existing graph schema and literal matching.
-**Integration:** [output-safety PR #3](https://github.com/levelinglucy/future/pull/3)
-is the validation and decision record; [prior symlink-boundary PR #2](https://github.com/levelinglucy/future/pull/2)
-remains historical evidence. **Release:** unreleased maintenance, not a stable
-tagged version. **Next:** revisit output durability or hostile filesystem races
-only if a real use case needs them.
+**Goal:** export complete graph JSON without overwriting scanned notes or
+existing results. **Integration:** [publication PR #4](https://github.com/levelinglucy/future/pull/4)
+is the current candidate and validation record; [output-safety PR #3](https://github.com/levelinglucy/future/pull/3)
+and [symlink-boundary PR #2](https://github.com/levelinglucy/future/pull/2)
+remain predecessor evidence. **Release:** unreleased maintenance; no stable tag.
+**Next:** seek actual portability/recovery evidence before broadening guarantees.
 
-**Unreleased changes:** refuse in-tree output and existing output paths to avoid
-overwriting a scanned document, an earlier graph or a symlink target. The graph
-data, registry formats and matcher are unchanged; repeated runs require a fresh
-destination name. Previous maintenance skipped symlinked corpus entries and
-sorted nodes/threads for reproducible results.
+**Unreleased changes:** graph writing now stages complete JSON in a private
+same-directory temporary file, flushes it and publishes by an exclusive
+hard link. This removes partial *destination* files after ordinary write
+failures and still refuses a competing output path. It does not change the
+graph schema, registry formats or match logic. Previous fixes refuse in-tree
+and existing output paths, skip symlinked corpus entries and sort graph output.
 
-**Boundary:** exclusive file creation prevents replacement of an existing
-destination, including one created between the early check and opening. It
-does **not** make the generated JSON crash-atomic: if a write fails after the
-new output file is opened, a partial file may remain. Inspect or remove that
-specific generated file manually before retrying. Concurrent replacement of
-corpus directories or their parents is not protected against.
+**Boundaries:** hard links must be supported by the destination filesystem;
+unsupported mounts refuse publication rather than copying. A process killed
+mid-write can leave a hidden `.spiral-garden-*.tmp` file in the output
+directory (possibly containing sensitive paths or motifs); review and remove
+only the specific abandoned temporary file as appropriate. This is not a
+power-loss durability claim: filesystem crashes, unsynced directory entries,
+concurrent source mutation and malicious filesystem/path swaps are untested.
+Work with trusted, stable local directories. The generated output is created
+with private file permissions where the platform supports them.
 
 ## Verification
 

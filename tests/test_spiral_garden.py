@@ -2,12 +2,14 @@
 
 All inputs live in disposable directories; the repository archive is never scanned.
 """
+import importlib.util
 import json
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPT = Path(__file__).resolve().parents[1] / "build_spiral_garden.py"
 
@@ -180,6 +182,70 @@ class SpiralGardenBootstrapTests(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             self.assertEqual(source.read_text(encoding="utf-8"), "boop original")
             self.assertTrue(out.is_symlink())
+
+
+class SpiralGardenPublicationTests(unittest.TestCase):
+    """Synthetic write failures must never make a partial graph look complete."""
+
+    @staticmethod
+    def builder():
+        spec = importlib.util.spec_from_file_location("spiral_garden_builder", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_interrupted_dump_leaves_no_output_or_staging_file(self):
+        builder = self.builder()
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp)
+            output = work / "new.json"
+
+            def fail_after_partial_write(graph, stream, **kwargs):
+                stream.write('{"incomplete":')
+                raise OSError("simulated disk write error")
+
+            with mock.patch.object(builder.json, "dump", side_effect=fail_after_partial_write):
+                with self.assertRaisesRegex(OSError, "simulated disk write error"):
+                    builder.write_graph_exclusive(output, {"nodes": [], "threads": []})
+            self.assertFalse(output.exists())
+            self.assertEqual(sorted(work.iterdir()), [])
+
+    def test_competing_destination_is_never_overwritten(self):
+        builder = self.builder()
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp)
+            output = work / "new.json"
+            real_link = builder.os.link
+
+            def competing_link(source, destination):
+                output.write_text("someone else's output", encoding="utf-8")
+                return real_link(source, destination)
+
+            with mock.patch.object(builder.os, "link", side_effect=competing_link):
+                with self.assertRaises(FileExistsError):
+                    builder.write_graph_exclusive(output, {"nodes": [], "threads": []})
+            self.assertEqual(output.read_text(encoding="utf-8"), "someone else's output")
+            self.assertEqual(sorted(work.iterdir()), [output])
+
+    def test_unavailable_hard_links_fail_closed(self):
+        builder = self.builder()
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp)
+            output = work / "new.json"
+            with mock.patch.object(builder.os, "link", side_effect=OSError("links unavailable")):
+                with self.assertRaisesRegex(OSError, "links unavailable"):
+                    builder.write_graph_exclusive(output, {"nodes": [], "threads": []})
+            self.assertEqual(sorted(work.iterdir()), [])
+
+    def test_success_publishes_complete_graph_and_cleans_staging(self):
+        builder = self.builder()
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp)
+            output = work / "new.json"
+            graph = {"schema": "spiral_garden_graph_v1", "nodes": [], "threads": []}
+            builder.write_graph_exclusive(output, graph)
+            self.assertEqual(json.loads(output.read_text(encoding="utf-8")), graph)
+            self.assertEqual(sorted(work.iterdir()), [output])
 
 if __name__ == "__main__":
     unittest.main()
