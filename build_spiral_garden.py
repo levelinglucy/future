@@ -87,9 +87,11 @@ def read_text_file(path: Path) -> str | None:
     if path.suffix.lower() not in TEXT_EXTENSIONS:
         return None
     try:
-        return path.read_text(encoding="utf-8", errors="ignore")
-    except Exception:
-        return None
+        return path.read_text(encoding="utf-8")
+    except UnicodeError as exc:
+        raise ValueError(f"invalid UTF-8 in scanned file {path}") from exc
+    except OSError as exc:
+        raise ValueError(f"could not read scanned file {path}: {exc}") from exc
 
 
 def build_node(path: Path, root: Path, seeds: list[dict[str, Any]], anchors: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -149,7 +151,12 @@ def scan_directory(root: Path, seeds: list[dict[str, Any]], anchors: list[dict[s
     # Do not descend through directory links or ingest file links pointing
     # outside the selected corpus. os.walk defaults to followlinks=False;
     # filtering links explicitly also makes the boundary visible to readers.
-    for directory, dirs, files in os.walk(root, followlinks=False):
+    def fail_walk(exc: OSError) -> None:
+        raise ValueError(f"could not scan directory: {exc}") from exc
+
+    for directory, dirs, files in os.walk(
+        root, followlinks=False, onerror=fail_walk
+    ):
         current = Path(directory)
         dirs[:] = sorted(
             name for name in dirs if not (current / name).is_symlink()
