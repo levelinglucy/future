@@ -115,5 +115,71 @@ class SpiralGardenBootstrapTests(unittest.TestCase):
                 [n["location"] for n in graph["nodes"]], ["a.txt", "z.txt"]
             )
 
+
+    def test_output_cannot_replace_scanned_source(self):
+        """--out must not destroy the very file being scanned."""
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp)
+            corpus = work / "corpus"
+            corpus.mkdir()
+            source = corpus / "note.txt"
+            original = "boop: precious source, not a graph\\n"
+            source.write_text(original, encoding="utf-8")
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPT), str(corpus), "--out", str(source)],
+                capture_output=True, text=True, timeout=15,
+            )
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertEqual(source.read_text(encoding="utf-8"), original)
+
+    def test_new_output_must_live_outside_scanned_tree(self):
+        with tempfile.TemporaryDirectory() as temp:
+            corpus = Path(temp) / "corpus"
+            corpus.mkdir()
+            (corpus / "note.txt").write_text("boop", encoding="utf-8")
+            proposed = corpus / "graph.json"
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPT), str(corpus), "--out", str(proposed)],
+                capture_output=True, text=True, timeout=15,
+            )
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertFalse(proposed.exists())
+
+    def test_existing_output_outside_tree_is_not_overwritten(self):
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp)
+            corpus = work / "corpus"
+            corpus.mkdir()
+            (corpus / "note.txt").write_text("boop", encoding="utf-8")
+            out = work / "previous.json"
+            original = '{"important":"do not replace"}\\n'
+            out.write_text(original, encoding="utf-8")
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPT), str(corpus), "--out", str(out)],
+                capture_output=True, text=True, timeout=15,
+            )
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertEqual(out.read_text(encoding="utf-8"), original)
+
+    def test_output_symlink_cannot_replace_source(self):
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp)
+            corpus = work / "corpus"
+            corpus.mkdir()
+            source = corpus / "note.txt"
+            source.write_text("boop original", encoding="utf-8")
+            out = work / "alias.json"
+            try:
+                out.symlink_to(source)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlinks unavailable on this platform")
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPT), str(corpus), "--out", str(out)],
+                capture_output=True, text=True, timeout=15,
+            )
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertEqual(source.read_text(encoding="utf-8"), "boop original")
+            self.assertTrue(out.is_symlink())
+
 if __name__ == "__main__":
     unittest.main()

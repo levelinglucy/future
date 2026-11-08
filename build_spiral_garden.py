@@ -121,15 +121,31 @@ def main() -> None:
     parser.add_argument("--anchors", default="anchor_registry.json", help="Anchor registry path")
     args = parser.parse_args()
 
+    # Resolve the scan tree before following any --out aliases. The input is
+    # explicitly read-only: publishing a graph there could destroy source data.
     root = Path(args.root).resolve()
+    if not root.is_dir():
+        parser.error("root must be an existing directory")
+
+    out_path = Path(args.out).absolute()
+    resolved_output = out_path.resolve()
+    if resolved_output == root or root in resolved_output.parents:
+        parser.error("--out must be outside the scanned directory")
+    if out_path.exists() or out_path.is_symlink():
+        parser.error("--out already exists; choose a new output filename")
+
     script_dir = Path(__file__).resolve().parent
     seeds = load_json((script_dir / args.seeds).resolve())
     anchors = load_json((script_dir / args.anchors).resolve())
     graph = scan_directory(root, seeds, anchors)
 
-    out_path = Path(args.out).resolve()
-    with out_path.open("w", encoding="utf-8") as f:
-        json.dump(graph, f, indent=2, ensure_ascii=False)
+    # 'x' is exclusive even if another process created the path after our
+    # early check. Do not follow a last-moment symlink or replace old results.
+    try:
+        with out_path.open("x", encoding="utf-8") as f:
+            json.dump(graph, f, indent=2, ensure_ascii=False)
+    except FileExistsError:
+        parser.error("--out already exists; choose a new output filename")
     print(f"Wrote graph with {len(graph['nodes'])} nodes and {len(graph['threads'])} threads to {out_path}")
 
 
