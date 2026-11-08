@@ -36,8 +36,13 @@ If several valid matched contributions overflow the combined score, the
 builder refuses the graph rather than writing misleading nonstandard JSON.
 These checks do not assign semantic validity to the supplied motifs or weights.
 
-Only files with selected text extensions are scanned. Output records relative
-**file paths, matched IDs, and derived scores**, not full file contents.
+Only files with selected text extensions are scanned. Eligible files must
+contain valid UTF-8 text: invalid bytes, failed reads and reported directory
+traversal errors now abort the scan **without publishing a graph**, instead of
+silently dropping bytes or pretending the omitted evidence did not exist.
+For other encodings, convert a copy to UTF-8 or select a different corpus.
+Output records relative **file paths, matched IDs, and derived scores**,
+not full file contents.
 Nevertheless, paths and motif matches can be sensitive. Scan only directories
 you are entitled to inspect, keep the output private unless you review it, and
 put the output **outside** the scanned tree: the command now refuses
@@ -58,19 +63,22 @@ registries produce the same graph structure.
 
 ## Development and change history
 
-**Goal:** export complete graph JSON without overwriting scanned notes or
-existing results. **Integration:** [publication PR #4](https://github.com/levelinglucy/future/pull/4)
-is the current candidate and validation record; [output-safety PR #3](https://github.com/levelinglucy/future/pull/3)
-and [symlink-boundary PR #2](https://github.com/levelinglucy/future/pull/2)
-remain predecessor evidence. **Release:** unreleased maintenance; no stable tag.
-**Next:** seek actual portability/recovery evidence before broadening guarantees.
+**Goal:** publish faithful, complete graph evidence from explicitly selected
+local text files, without overwriting source notes or earlier graphs.
+**Integration:** strict corpus-read validation is proposed on this branch;
+[registry-validation PR #5](https://github.com/levelinglucy/future/pull/5)
+and [complete-publication PR #4](https://github.com/levelinglucy/future/pull/4)
+are merged predecessors. **Validation:** see the implementation PR checks;
+never treat a successful source scan as proof of power-loss durability.
+**Release:** unreleased; no stable tag. **Next:** check the candidate on
+supported CPython versions, then consider bounded resource use only with
+actual scale evidence.
 
-**Unreleased changes:** malformed, duplicate-ID and overflowing
-registries now fail before scanning; graph scores must remain finite, and JSON
-publication forbids nonstandard numbers. The existing complete-only output
-staging and exclusive publication remain unchanged. Earlier maintenance
-refuses in-tree and existing output paths, skips symlinked corpus entries
-and sorts graph output. Valid registry formats and graph schema remain compatible.
+**Unreleased changes:** strict UTF-8 decoding and reported I/O/traversal
+failures now abort graph creation rather than manufacture matches or hide
+missing evidence. Earlier registry validation rejects ambiguous, malformed
+and overflowing scores; output remains complete-only and exclusive, within
+the existing graph schema. Symlinked entries are deliberately skipped.
 
 **Boundaries:** hard links must be supported by the destination filesystem;
 unsupported mounts refuse publication rather than copying. A process killed
