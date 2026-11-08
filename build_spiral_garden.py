@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import tempfile
 from pathlib import Path
@@ -19,8 +20,63 @@ ANCHOR_MULTIPLIER = 3.0
 
 
 def load_json(path: Path) -> Any:
+    """Read registry JSON without silently discarding duplicate keys."""
+
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate registry JSON key: {key!r}")
+            result[key] = value
+        return result
+
+    def reject_constant(token):
+        raise ValueError(f"nonstandard registry number: {token}")
+
     with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+        return json.load(
+            f, object_pairs_hook=unique_object, parse_constant=reject_constant
+        )
+
+
+def finite_number(value: Any) -> bool:
+    """Reject bool and numerically unrepresentable registry values."""
+    if type(value) not in (int, float):
+        return False
+    try:
+        return math.isfinite(value)
+    except (ValueError, OverflowError):
+        return False
+
+
+def validate_registry(entries: Any, kind: str) -> list[dict[str, Any]]:
+    """Reject ambiguous or misleading motif definitions before scanning."""
+    if not isinstance(entries, list):
+        raise ValueError(f"{kind} registry must be a JSON array")
+    term = "token" if kind == "seed" else "phrase"
+    weights = ("stability_score", "activation_weight") if kind == "seed" else ("depth_score",)
+    seen = set()
+    for index, item in enumerate(entries, 1):
+        label = f"{kind} registry entry {index}"
+        if not isinstance(item, dict):
+            raise ValueError(f"{label} must be an object")
+        identifier = item.get("id")
+        if not isinstance(identifier, str) or not identifier.strip():
+            raise ValueError(f"{label} needs a nonempty string id")
+        if identifier in seen:
+            raise ValueError(f"{kind} registry has duplicate id: {identifier!r}")
+        seen.add(identifier)
+        phrase = item.get(term)
+        if not isinstance(phrase, str) or not phrase.strip():
+            raise ValueError(f"{label} needs a nonempty string {term}")
+        for name in weights:
+            if not finite_number(item.get(name)):
+                raise ValueError(f"{label} needs finite numeric {name}")
+        contribution = (item["stability_score"] * item["activation_weight"]
+                        if kind == "seed" else item["depth_score"] * ANCHOR_MULTIPLIER)
+        if not finite_number(contribution):
+            raise ValueError(f"{label} has an overflowing score contribution")
+    return entries
 
 
 def sha1_short(text: str) -> str:
@@ -49,6 +105,8 @@ def build_node(path: Path, root: Path, seeds: list[dict[str, Any]], anchors: lis
 
     score = sum(s["stability_score"] * s["activation_weight"] for s in matched_seeds)
     score += sum(a["depth_score"] * ANCHOR_MULTIPLIER for a in matched_anchors)
+    if not finite_number(score):
+        raise ValueError("registry matches produce an overflowing total score")
 
     rel = str(path.relative_to(root))
     return {
@@ -129,7 +187,7 @@ def write_graph_exclusive(out_path: Path, graph: dict[str, Any]) -> None:
     staged_path = Path(staged_name)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            json.dump(graph, stream, indent=2, ensure_ascii=False)
+            json.dump(graph, stream, indent=2, ensure_ascii=False, allow_nan=False)
             stream.flush()
             os.fsync(stream.fileno())
         # Same-directory hard linking publishes complete bytes in one step.
@@ -164,9 +222,18 @@ def main() -> None:
         parser.error("--out already exists; choose a new output filename")
 
     script_dir = Path(__file__).resolve().parent
-    seeds = load_json((script_dir / args.seeds).resolve())
-    anchors = load_json((script_dir / args.anchors).resolve())
-    graph = scan_directory(root, seeds, anchors)
+    try:
+        seeds = validate_registry(load_json((script_dir / args.seeds).resolve()), "seed")
+        anchors = validate_registry(load_json((script_dir / args.anchors).resolve()), "anchor")
+        shared = {s["id"] for s in seeds} & {a["id"] for a in anchors}
+        if shared:
+            raise ValueError(f"registry seed/anchor IDs overlap: {sorted(shared)!r}")
+    except (OSError, ValueError) as exc:
+        parser.error(f"invalid registry: {exc}")
+    try:
+        graph = scan_directory(root, seeds, anchors)
+    except ValueError as exc:
+        parser.error(f"could not build graph: {exc}")
 
     try:
         write_graph_exclusive(out_path, graph)

@@ -26,6 +26,16 @@ seeds need `id`, `token`, `stability_score`, `activation_weight`; anchors need
 `id`, `phrase`, `depth_score`. The default paths resolve beside the script,
 not relative to the current working directory.
 
+Registry input is checked *before* scanning or creating an output: each registry
+must be an array of objects with unique, nonblank string IDs and nonblank
+literal match terms. IDs must also be distinct across seeds and anchors so
+thread evidence remains unambiguous. Scores and weights must be finite
+numbers (not booleans), and a single motif's contribution must not overflow.
+Duplicate JSON keys and nonstandard `NaN`/`Infinity` tokens are refused.
+If several valid matched contributions overflow the combined score, the
+builder refuses the graph rather than writing misleading nonstandard JSON.
+These checks do not assign semantic validity to the supplied motifs or weights.
+
 Only files with selected text extensions are scanned. Output records relative
 **file paths, matched IDs, and derived scores**, not full file contents.
 Nevertheless, paths and motif matches can be sensitive. Scan only directories
@@ -55,12 +65,12 @@ and [symlink-boundary PR #2](https://github.com/levelinglucy/future/pull/2)
 remain predecessor evidence. **Release:** unreleased maintenance; no stable tag.
 **Next:** seek actual portability/recovery evidence before broadening guarantees.
 
-**Unreleased changes:** graph writing now stages complete JSON in a private
-same-directory temporary file, flushes it and publishes by an exclusive
-hard link. This removes partial *destination* files after ordinary write
-failures and still refuses a competing output path. It does not change the
-graph schema, registry formats or match logic. Previous fixes refuse in-tree
-and existing output paths, skip symlinked corpus entries and sort graph output.
+**Unreleased changes:** malformed, duplicate-ID and overflowing
+registries now fail before scanning; graph scores must remain finite, and JSON
+publication forbids nonstandard numbers. The existing complete-only output
+staging and exclusive publication remain unchanged. Earlier maintenance
+refuses in-tree and existing output paths, skips symlinked corpus entries
+and sorts graph output. Valid registry formats and graph schema remain compatible.
 
 **Boundaries:** hard links must be supported by the destination filesystem;
 unsupported mounts refuse publication rather than copying. A process killed

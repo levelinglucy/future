@@ -247,5 +247,74 @@ class SpiralGardenPublicationTests(unittest.TestCase):
             self.assertEqual(json.loads(output.read_text(encoding="utf-8")), graph)
             self.assertEqual(sorted(work.iterdir()), [output])
 
+
+class SpiralGardenRegistryValidationTests(unittest.TestCase):
+    """Reject misleading registry data before scanning or publishing a graph."""
+
+    def exercise_registry(self, raw_seeds, raw_anchors="[]"):
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp)
+            source = work / "corpus"
+            source.mkdir()
+            (source / "note.txt").write_text("unrelated text", encoding="utf-8")
+            seeds = work / "seeds.json"
+            anchors = work / "anchors.json"
+            seeds.write_text(raw_seeds, encoding="utf-8")
+            anchors.write_text(raw_anchors, encoding="utf-8")
+            output = work / "graph.json"
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), str(source), "--out", str(output),
+                 "--seeds", str(seeds), "--anchors", str(anchors)],
+                capture_output=True, text=True, timeout=15,
+            )
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+            self.assertIn("registry", result.stderr.lower())
+            self.assertFalse(output.exists(), result.stderr)
+            self.assertFalse(
+                any(p.name.startswith(".spiral-garden-") for p in work.iterdir()),
+                "invalid inputs must not leave temporary outputs",
+            )
+
+    def test_empty_terms_and_ids_are_not_accepted(self):
+        cases = [
+            ('[{"id":"all","token":"","stability_score":1,"activation_weight":1}]', "[]"),
+            ("[]", '[{"id":"anchor","phrase":"  ","depth_score":3}]'),
+            ('[{"id":" ","token":"unrelated","stability_score":1,"activation_weight":1}]', "[]"),
+        ]
+        for seeds, anchors in cases:
+            with self.subTest(seeds=seeds, anchors=anchors):
+                self.exercise_registry(seeds, anchors)
+
+    def test_duplicate_ids_and_json_keys_are_rejected(self):
+        cases = [
+            '[{"id":"a","token":"x","stability_score":1,"activation_weight":1},'
+            '{"id":"a","token":"y","stability_score":1,"activation_weight":1}]',
+            '[{"id":"original","id":"shadow","token":"x","stability_score":1,"activation_weight":1}]',
+        ]
+        for seeds in cases:
+            with self.subTest(seeds=seeds):
+                self.exercise_registry(seeds)
+        self.exercise_registry(
+            '[{"id":"shared","token":"x","stability_score":1,"activation_weight":1}]',
+            '[{"id":"shared","phrase":"x","depth_score":1}]',
+        )
+
+    def test_invalid_number_types_and_nonfinite_scores_are_rejected(self):
+        cases = [
+            '[{"id":"a","token":"x","stability_score":NaN,"activation_weight":1}]',
+            '[{"id":"a","token":"x","stability_score":1,"activation_weight":Infinity}]',
+            '[{"id":"a","token":"x","stability_score":true,"activation_weight":1}]',
+            '[{"id":"a","token":"x","stability_score":1e308,"activation_weight":1e308}]',
+        ]
+        for seeds in cases:
+            with self.subTest(seeds=seeds):
+                self.exercise_registry(seeds)
+
+    def test_registry_shapes_are_checked_before_use(self):
+        for seeds in ('{"id":"not-an-array"}', '[42]', '[{"id":"a","token":42}]'):
+            with self.subTest(seeds=seeds):
+                self.exercise_registry(seeds)
+
+
 if __name__ == "__main__":
     unittest.main()
