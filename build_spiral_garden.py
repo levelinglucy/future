@@ -87,7 +87,10 @@ def read_text_file(path: Path) -> str | None:
     if path.suffix.lower() not in TEXT_EXTENSIONS:
         return None
     try:
-        return path.read_text(encoding="utf-8")
+        # Literal motif comparison must preserve CRLF, CR and LF distinctions.
+        # Path.read_text() performs universal-newline translation by default.
+        with path.open("r", encoding="utf-8", newline="") as stream:
+            return stream.read()
     except UnicodeError as exc:
         raise ValueError(f"invalid UTF-8 in scanned file {path}") from exc
     except OSError as exc:

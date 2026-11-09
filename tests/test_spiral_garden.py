@@ -320,6 +320,31 @@ class SpiralGardenRegistryValidationTests(unittest.TestCase):
 class SpiralGardenSourceIntegrityTests(unittest.TestCase):
     """A graph cannot claim complete evidence when input text was lost."""
 
+    def test_literal_matching_preserves_original_utf8_line_endings(self):
+        """CRLF and CR are distinct literal motifs, not interchangeable with LF."""
+        builder = SpiralGardenPublicationTests.builder()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "notes.txt"
+            terms = [
+                ("crlf", "a\r\nb"),
+                ("cr", "a\rb"),
+                ("lf", "a\nb"),
+            ]
+            seeds = [
+                {"id": name, "token": term,
+                 "stability_score": 1, "activation_weight": 1}
+                for name, term in terms
+            ]
+            for original, expected in ((b"a\r\nb", "crlf"),
+                                       (b"a\rb", "cr"),
+                                       (b"a\nb", "lf")):
+                with self.subTest(original=original):
+                    source.write_bytes(original)
+                    node = builder.build_node(source, root, seeds, [])
+                    self.assertIsNotNone(node)
+                    self.assertEqual(node["matched_seeds"], [expected])
+
     def test_invalid_utf8_cannot_create_false_motif_match(self):
         # Dropping the undecodable byte would forge the literal token 'boop'.
         with tempfile.TemporaryDirectory() as temp:

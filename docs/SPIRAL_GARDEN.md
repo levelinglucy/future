@@ -17,8 +17,10 @@ The included `seed_registry.json` and `anchor_registry.json` are small,
 illustrative defaults drawn from already-public archive motifs. They let the
 documented command work immediately; their numeric weights are arbitrary
 example scoring parameters, **not** confidence or evidence of sentience.
-Matching is **literal and case-sensitive**. A directory with no matches produces
-an empty graph, which is valid output.
+Matching is **literal and case-sensitive**, including original UTF-8 line breaks:
+`\r\n`, `\r` and `\n` are distinct literal sequences, not interchangeable.
+Registry JSON terms can express these characters as escaped `\\r` and `\\n`.
+A directory with no matches produces an empty graph, which is valid output.
 
 Supply your own JSON-array registries with `--seeds /absolute/path/seeds.json`
 and `--anchors /absolute/path/anchors.json`. Entries follow the shipped examples:
@@ -65,19 +67,23 @@ registries produce the same graph structure.
 
 **Goal:** publish faithful, complete graph evidence from explicitly selected
 local text files, without overwriting source notes or earlier graphs.
-**Integration:** strict corpus-read validation is recorded in
+**Integration:** the literal-newline fidelity correction is tracked in
+[PR #7](https://github.com/levelinglucy/future/pull/7);
+strict corpus-read validation is recorded in
 [PR #6](https://github.com/levelinglucy/future/pull/6);
 [registry-validation PR #5](https://github.com/levelinglucy/future/pull/5)
 and [complete-publication PR #4](https://github.com/levelinglucy/future/pull/4)
 are merged predecessors. **Validation:** see the implementation PR checks;
 never treat a successful source scan as proof of power-loss durability.
-**Release:** unreleased; no stable tag. **Next:** check the candidate on
-supported CPython versions, then consider bounded resource use only with
-actual scale evidence.
+**Release:** unreleased; no stable tag. **Next:** verify candidate-revision
+checks on supported CPython versions, then consider bounded resource use only
+with actual scale evidence.
 
-**Unreleased changes:** strict UTF-8 decoding and reported I/O/traversal
-failures now abort graph creation rather than manufacture matches or hide
-missing evidence. Earlier registry validation rejects ambiguous, malformed
+**Unreleased changes:** retain original CRLF, CR and LF sequences while
+scanning strict UTF-8 to avoid false positive/negative literal motif matches.
+Previously, universal-newline translation changed these characters before matching.
+Strict UTF-8 decoding and reported I/O/traversal failures abort graph creation
+rather than manufacture matches or hide missing evidence. Earlier registry validation rejects ambiguous, malformed
 and overflowing scores; output remains complete-only and exclusive, within
 the existing graph schema. Symlinked entries are deliberately skipped.
 
