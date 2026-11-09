@@ -327,18 +327,18 @@ class SpiralGardenSourceIntegrityTests(unittest.TestCase):
             root = Path(temp)
             source = root / "notes.txt"
             terms = [
-                ("crlf", "a\\r\\nb"),
-                ("cr", "a\\rb"),
-                ("lf", "a\\nb"),
+                ("crlf", "a\r\nb"),
+                ("cr", "a\rb"),
+                ("lf", "a\nb"),
             ]
             seeds = [
                 {"id": name, "token": term,
                  "stability_score": 1, "activation_weight": 1}
                 for name, term in terms
             ]
-            for original, expected in ((b"a\\r\\nb", "crlf"),
-                                       (b"a\\rb", "cr"),
-                                       (b"a\\nb", "lf")):
+            for original, expected in ((b"a\r\nb", "crlf"),
+                                       (b"a\rb", "cr"),
+                                       (b"a\nb", "lf")):
                 with self.subTest(original=original):
                     source.write_bytes(original)
                     node = builder.build_node(source, root, seeds, [])
