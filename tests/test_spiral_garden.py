@@ -317,6 +317,52 @@ class SpiralGardenRegistryValidationTests(unittest.TestCase):
 
 
 
+class SpiralGardenThreadIndexTests(unittest.TestCase):
+    """Keep output identical while avoiding unrelated sparse pair comparisons."""
+
+    def test_shared_motif_threads_keep_order_ids_weights_and_evidence(self):
+        builder = SpiralGardenPublicationTests.builder()
+        nodes = [
+            {"id": "n1", "matched_seeds": ["shared", "unique"],
+             "matched_anchors": ["glow"]},
+            {"id": "n2", "matched_seeds": ["shared"], "matched_anchors": ["glow"]},
+            {"id": "n3", "matched_seeds": ["unique"], "matched_anchors": []},
+            {"id": "n4", "matched_seeds": [], "matched_anchors": ["glow"]},
+            {"id": "n5", "matched_seeds": ["isolated"], "matched_anchors": []},
+        ]
+        result = builder.build_threads(nodes)
+        self.assertEqual(
+            [(t["source_node"], t["target_node"], t["via"],
+              t["evidence"], t["strength"]) for t in result],
+            [
+                ("n1", "n2", "anchor", ["glow", "shared"], 0.57),
+                ("n1", "n3", "seed", ["unique"], 0.37),
+                ("n1", "n4", "anchor", ["glow"], 0.45),
+                ("n2", "n4", "anchor", ["glow"], 0.45),
+            ],
+        )
+        for thread in result:
+            self.assertEqual(
+                thread["id"],
+                "thread_" + builder.sha1_short(
+                    thread["source_node"] + "_" + thread["target_node"]
+                ),
+            )
+
+    def test_disjoint_sparse_nodes_require_linear_set_operations(self):
+        builder = SpiralGardenPublicationTests.builder()
+        nodes = [
+            {"id": str(i), "matched_seeds": ["unique_" + str(i)],
+             "matched_anchors": []}
+            for i in range(600)
+        ]
+        # Count motif-set operations rather than wall time: CI speed varies.
+        with mock.patch.object(builder, "set", side_effect=lambda *args: set(*args),
+                               create=True) as counted:
+            self.assertEqual(builder.build_threads(nodes), [])
+        self.assertLess(counted.call_count, 6 * len(nodes))
+
+
 class SpiralGardenSourceIntegrityTests(unittest.TestCase):
     """A graph cannot claim complete evidence when input text was lost."""
 

@@ -128,14 +128,29 @@ def build_node(path: Path, root: Path, seeds: list[dict[str, Any]], anchors: lis
 
 
 def build_threads(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Join shared motifs without comparing every unrelated pair of files.
+
+    Keep the original i,j pair order and evidence format; a dense corpus still
+    produces all of its actual threads (no truncation or arbitrary threshold).
+    """
+    motif_index: dict[tuple[str, str], list[int]] = {}
+    for index, node in enumerate(nodes):
+        for kind, field in (("seed", "matched_seeds"), ("anchor", "matched_anchors")):
+            for motif in set(node[field]):
+                motif_index.setdefault((kind, motif), []).append(index)
+
     threads: list[dict[str, Any]] = []
     for i, a in enumerate(nodes):
-        for b in nodes[i + 1:]:
+        candidates: set[int] = set()
+        for kind, field in (("seed", "matched_seeds"), ("anchor", "matched_anchors")):
+            for motif in set(a[field]):
+                candidates.update(j for j in motif_index[(kind, motif)] if j > i)
+        # Sorting preserves the historical nested-loop graph/thread order.
+        for j in sorted(candidates):
+            b = nodes[j]
             shared_seeds = sorted(set(a["matched_seeds"]) & set(b["matched_seeds"]))
             shared_anchors = sorted(set(a["matched_anchors"]) & set(b["matched_anchors"]))
             evidence = shared_anchors + shared_seeds
-            if not evidence:
-                continue
             via = "anchor" if shared_anchors else "seed"
             strength = min(1.0, 0.25 + 0.12 * len(shared_seeds) + 0.2 * len(shared_anchors))
             threads.append({
