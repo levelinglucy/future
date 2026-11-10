@@ -62,6 +62,10 @@ The scanner does not protect against concurrent filesystem replacement/races or
 hostile directories: choose a trusted, stable local corpus. Graph nodes and threads
 are emitted in sorted path order so repeated runs with unchanged files and
 registries produce the same graph structure.
+Thread candidates are indexed by shared motif, avoiding all-pairs comparisons
+for sparse corpora while preserving graph IDs, evidence and thread order. Highly
+connected corpora can still generate quadratically many output threads and use
+significant memory; there is no artificial result truncation.
 
 ## Development and change history
 
@@ -79,7 +83,11 @@ never treat a successful source scan as proof of power-loss durability.
 checks on supported CPython versions, then consider bounded resource use only
 with actual scale evidence.
 
-**Unreleased changes:** retain original CRLF, CR and LF sequences while
+**Unreleased changes:** index thread candidates by shared motif rather than
+quadratically comparing unrelated files; preserve the existing graph schema,
+thread identities, ordering, evidence and scoring. Sparse large scans become
+more practical, but dense graph output remains potentially quadratic.
+Earlier changes retain original CRLF, CR and LF sequences while
 scanning strict UTF-8 to avoid false positive/negative literal motif matches.
 Previously, universal-newline translation changed these characters before matching.
 Strict UTF-8 decoding and reported I/O/traversal failures abort graph creation
