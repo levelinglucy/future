@@ -54,28 +54,40 @@ def render_edge(left, right, details):
             f"| shared motifs: {evidence}")
 
 
-def list_locations(graph, contains=None, limit=8):
-    """Show exact saved matching-file paths without scanning the source tree.
+def list_locations(graph, contains=None, limit=8, motif=None):
+    """Show exact recorded paths, optionally filtering on paths and motif IDs.
 
     A graph contains only files matching at least one registered motif.
-    The filter is a literal, case-sensitive substring of the recorded path.
+    The path filter is a literal, case-sensitive substring; the motif filter
+    is an exact, case-sensitive saved seed or anchor identifier.
     """
     if limit < 1:
         raise ValueError("--limit must be a positive integer")
+    if motif == "":
+        raise ValueError("--motif must be a nonempty exact identifier")
     nodes, _ = graph
-    matching = sorted(location for location in nodes
-                      if contains is None or contains in location)
-    if contains is None:
-        lines = [f"{len(nodes)} recorded matching-file locations in this graph"]
-    else:
-        lines = [f"Recorded paths matching case-sensitive substring {quoted(contains)}: "
+    matching = sorted(
+        location for location, details in nodes.items()
+        if (contains is None or contains in location)
+        and (motif is None or motif in details["matched_seeds"]
+             or motif in details["matched_anchors"])
+    )
+    filters = []
+    if contains is not None:
+        filters.append(f"case-sensitive path substring {quoted(contains)}")
+    if motif is not None:
+        filters.append(f"exact motif ID {quoted(motif)}")
+    if filters:
+        lines = [f"Recorded paths matching {' and '.join(filters)}: "
                  f"{len(matching)} of {len(nodes)}"]
+    else:
+        lines = [f"{len(nodes)} recorded matching-file locations in this graph"]
     for location in matching[:limit]:
         lines.append("  " + quoted(location))
     if len(matching) > limit:
         lines.append(f"  ... {len(matching) - limit} more; increase --limit to inspect them")
     if not matching:
-        lines.append("No recorded paths match the filter." if contains is not None
+        lines.append("No recorded paths match the filter." if filters
                      else "No matching-file locations were recorded.")
     lines.append("Only files with literal motif matches appear; other scanned files are absent.")
     return "\n".join(lines)
@@ -124,6 +136,7 @@ def main():
                       help="List recorded matching-file paths before tracing")
     parser.add_argument("--to", dest="target", help="Optional destination for shortest-hop route")
     parser.add_argument("--contains", help="Literal case-sensitive path substring for --list")
+    parser.add_argument("--motif", help="Exact recorded seed or anchor ID for --list")
     parser.add_argument("--limit", type=int, default=8,
                         help="Maximum listed paths or neighbors (default: 8)")
     args = parser.parse_args()
@@ -133,11 +146,15 @@ def main():
         parser.error("--to requires --from")
     if not args.list and args.contains is not None:
         parser.error("--contains requires --list")
+    if not args.list and args.motif is not None:
+        parser.error("--motif requires --list")
+    if args.motif == "":
+        parser.error("--motif must be a nonempty exact identifier")
     try:
         # The same complete graph validation precedes either output mode.
         from compare_spiral_gardens import load_graph
         graph = load_graph(args.graph)
-        report = (list_locations(graph, args.contains, args.limit) if args.list
+        report = (list_locations(graph, args.contains, args.limit, args.motif) if args.list
                   else describe(graph, args.origin, args.target, args.limit))
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
