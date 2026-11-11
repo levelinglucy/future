@@ -44,10 +44,10 @@ class SnapshotDiffTests(unittest.TestCase):
             "threads": {"added": 0, "removed": 0, "changed": 0}})
 
     def test_added_removed_modified_nodes_and_threads(self):
-        old = graph([node("a", "a.txt", ["x"]), node("b", "b.txt", ["x"]),
+        old = graph([node("a", "a.txt", ["x"]), node("b", "b.txt", ["x"], ["new"]),
                      node("z", "old.txt", ["z"])], [edge("t", "a", "b")])
         new = graph([node("A2", "a.txt", ["x"], ["new"], 4),
-                     node("B2", "b.txt", ["x"]), node("x", "new.txt", ["z"])],
+                     node("B2", "b.txt", ["x"], ["new"]), node("x", "new.txt", ["z"])],
                     [edge("q", "B2", "A2", "anchor", 0.57, ("new", "x"))])
         proc = self.run_cli(old, new)
         self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -67,7 +67,7 @@ class SnapshotDiffTests(unittest.TestCase):
         self.assertEqual(sum(diff["counts"]["threads"].values()), 0)
 
     def test_added_and_removed_edges_are_distinguished(self):
-        base = [node("a", "a"), node("b", "b"), node("c", "c")]
+        base = [node("a", "a", ["x"]), node("b", "b", ["x"]), node("c", "c", ["x"])]
         old = graph(base, [edge("one", "a", "b")])
         new = graph(base, [edge("two", "b", "c")])
         diff = json.loads(self.run_cli(old, new).stdout)
@@ -90,6 +90,35 @@ class SnapshotDiffTests(unittest.TestCase):
                 proc = self.run_cli(good, candidate)
                 self.assertNotEqual(proc.returncode, 0)
                 self.assertEqual(proc.stdout, "")
+
+    def test_edge_evidence_must_be_justified_by_endpoint_motifs(self):
+        valid = graph([
+            node("a", "a.txt", ["x", "y"], ["🌱"]),
+            node("b", "b.txt", ["y", "x"], ["🌱"]),
+        ], [edge("t", "a", "b", "anchor", 0.69, ("🌱", "x", "y"))])
+        result = self.run_cli(valid, valid)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["counts"]["threads"]["changed"], 0)
+
+        cases = [
+            edge("fake", "a", "b", "seed", 0.69, ("🌱", "x", "y")),  # wrong via
+            edge("fake", "a", "b", "anchor", 0.81, ("🌱", "x", "y")), # invented strength
+            edge("fake", "a", "b", "anchor", 0.69, ("🌱", "x")),      # missing shared seed
+            edge("fake", "a", "b", "anchor", 0.69, ("🌱", "x", "other")), # invented motif
+            edge("fake", "a", "b", "anchor", 0.69, ("x", "🌱", "y")),   # noncanonical order
+        ]
+        for thread in cases:
+            with self.subTest(thread=thread):
+                proc = self.run_cli(valid, graph(valid["nodes"], [thread]))
+                self.assertNotEqual(proc.returncode, 0)
+                self.assertEqual(proc.stdout, "")
+
+        # A plausible-looking edge with no shared motif is not graph evidence.
+        none = graph([node("a", "a.txt", ["x"]), node("b", "b.txt", ["y"])],
+                     [edge("fake", "a", "b", "seed", 0.37, ("x",))])
+        proc = self.run_cli(valid, none)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(proc.stdout, "")
 
     def test_unknown_schema_and_malformed_json_rejected(self):
         for invalid in ('[]', '{"schema":', '{}'):
