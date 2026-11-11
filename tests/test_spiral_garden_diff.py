@@ -1,0 +1,102 @@
+"""Offline, disposable regression tests for graph snapshot comparison."""
+import json
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+SCRIPT = Path(__file__).resolve().parents[1] / "compare_spiral_gardens.py"
+
+
+def node(ident, location, seeds=(), anchors=(), score=1):
+    return dict(id=ident, location=location, matched_seeds=list(seeds),
+                matched_anchors=list(anchors), score=score)
+
+
+def edge(ident, src, dst, via="seed", strength=0.37, evidence=("x",)):
+    return dict(id=ident, source_node=src, target_node=dst, via=via,
+                strength=strength, evidence=list(evidence))
+
+
+def graph(nodes=(), edges=()):
+    return dict(schema="spiral_garden_graph_v1", nodes=list(nodes), threads=list(edges))
+
+
+class SnapshotDiffTests(unittest.TestCase):
+    def run_cli(self, old, new):
+        with tempfile.TemporaryDirectory() as directory:
+            a, b = Path(directory) / "old.json", Path(directory) / "new.json"
+            for path, data in ((a, old), (b, new)):
+                path.write_text(data if isinstance(data, str) else json.dumps(data),
+                                encoding="utf-8")
+            return subprocess.run([sys.executable, str(SCRIPT), str(a), str(b)],
+                                  capture_output=True, text=True, timeout=15)
+
+    def test_equal_graphs_report_no_changes(self):
+        g = graph([node("n1", "🌱.txt", ["hello"])])
+        proc = self.run_cli(g, g)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        diff = json.loads(proc.stdout)
+        self.assertEqual(diff["schema"], "spiral_garden_diff_v1")
+        self.assertEqual(diff["counts"], {
+            "nodes": {"added": 0, "removed": 0, "changed": 0},
+            "threads": {"added": 0, "removed": 0, "changed": 0}})
+
+    def test_added_removed_modified_nodes_and_threads(self):
+        old = graph([node("a", "a.txt", ["x"]), node("b", "b.txt", ["x"]),
+                     node("z", "old.txt", ["z"])], [edge("t", "a", "b")])
+        new = graph([node("A2", "a.txt", ["x"], ["new"], 4),
+                     node("B2", "b.txt", ["x"]), node("x", "new.txt", ["z"])],
+                    [edge("q", "B2", "A2", "anchor", 0.57, ("new", "x"))])
+        proc = self.run_cli(old, new)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        diff = json.loads(proc.stdout)
+        self.assertEqual(diff["counts"]["nodes"], {"added": 1, "removed": 1, "changed": 1})
+        self.assertEqual(diff["nodes"]["changed"][0]["location"], "a.txt")
+        self.assertEqual(diff["threads"]["changed"][0]["locations"], ["a.txt", "b.txt"])
+        self.assertEqual(diff["counts"]["threads"], {"added": 0, "removed": 0, "changed": 1})
+
+    def test_reordered_nodes_reversed_edges_and_new_internal_ids_are_stable(self):
+        old = graph([node("a", "a.txt", ["x"]), node("b", "b.txt", ["x"])],
+                    [edge("t", "a", "b")])
+        new = graph([node("bb", "b.txt", ["x"]), node("aa", "a.txt", ["x"])],
+                    [edge("changed", "bb", "aa")])
+        diff = json.loads(self.run_cli(old, new).stdout)
+        self.assertEqual(sum(diff["counts"]["nodes"].values()), 0)
+        self.assertEqual(sum(diff["counts"]["threads"].values()), 0)
+
+    def test_added_and_removed_edges_are_distinguished(self):
+        base = [node("a", "a"), node("b", "b"), node("c", "c")]
+        old = graph(base, [edge("one", "a", "b")])
+        new = graph(base, [edge("two", "b", "c")])
+        diff = json.loads(self.run_cli(old, new).stdout)
+        self.assertEqual(diff["counts"]["threads"], {"added": 1, "removed": 1, "changed": 0})
+
+    def test_bad_inputs_do_not_emit_partial_output(self):
+        good = graph()
+        bad = [
+            '{"schema":"spiral_garden_graph_v1","nodes":[],"nodes":[],"threads":[]}',
+            '{"schema":"spiral_garden_graph_v1","nodes":[],"threads":[],"bad":NaN}',
+            graph([node("n", "x", score=float("inf"))]),
+            graph([node("a", "x"), node("b", "x")]),
+            graph([node("a", "x", ["duplicate", "duplicate"])]),
+            graph([node("a", "x")], [edge("one", "a", "missing")]),
+            graph([node("a", "x"), node("b", "y")],
+                  [edge("one", "a", "b"), edge("two", "b", "a")]),
+        ]
+        for candidate in bad:
+            with self.subTest(candidate=str(candidate)[:40]):
+                proc = self.run_cli(good, candidate)
+                self.assertNotEqual(proc.returncode, 0)
+                self.assertEqual(proc.stdout, "")
+
+    def test_unknown_schema_and_malformed_json_rejected(self):
+        for invalid in ('[]', '{"schema":', '{}'):
+            proc = self.run_cli(invalid, graph())
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertEqual(proc.stdout, "")
+
+
+if __name__ == "__main__":
+    unittest.main()

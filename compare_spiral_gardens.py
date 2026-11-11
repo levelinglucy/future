@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+"""Compare saved Spiral Garden v1 graphs without changing either input.
+
+Structural evidence comparison, not chronological or causal verification.
+See docs/SPIRAL_GARDEN.md for intended usage and limits.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import math
+from pathlib import Path
+from typing import Any
+
+
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key!r}")
+        result[key] = value
+    return result
+
+
+def reject_constant(token):
+    raise ValueError(f"nonstandard JSON number: {token}")
+
+
+def valid_string(value, field):
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field} must be a nonempty string")
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise ValueError(f"{field} must be valid UTF-8") from exc
+    return value
+
+
+def valid_ids(value, field):
+    if not isinstance(value, list):
+        raise ValueError(f"{field} must be an array")
+    values = [valid_string(item, field) for item in value]
+    if len(set(values)) != len(values):
+        raise ValueError(f"{field} contains duplicate identifiers")
+    return values
+
+
+def finite_number(value, field):
+    if type(value) not in (float, int):
+        raise ValueError(f"{field} must be a finite number")
+    try:
+        finite = math.isfinite(value)
+    except (ValueError, OverflowError):
+        finite = False
+    if not finite:
+        raise ValueError(f"{field} must be a finite number")
+    return value
+
+
+def load_graph(path: Path):
+    """Refuse malformed or ambiguous fields before any comparison is emitted."""
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            graph = json.load(f, object_pairs_hook=unique_object,
+                              parse_constant=reject_constant)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"could not read valid JSON from {path}: {exc}") from exc
+    if not isinstance(graph, dict) or graph.get("schema") != "spiral_garden_graph_v1":
+        raise ValueError(f"{path} is not a spiral_garden_graph_v1 graph")
+    if not isinstance(graph.get("nodes"), list) or not isinstance(graph.get("threads"), list):
+        raise ValueError("graph nodes and threads must be arrays")
+
+    nodes = {}
+    id_locations = {}
+    for index, node in enumerate(graph["nodes"], 1):
+        if not isinstance(node, dict):
+            raise ValueError(f"node {index} must be an object")
+        ident = valid_string(node.get("id"), f"node {index} id")
+        location = valid_string(node.get("location"), f"node {index} location")
+        if ident in id_locations or location in nodes:
+            raise ValueError(f"duplicate node ID or location at node {index}")
+        id_locations[ident] = location
+        nodes[location] = {
+            "matched_seeds": valid_ids(node.get("matched_seeds"), f"node {index} matched_seeds"),
+            "matched_anchors": valid_ids(node.get("matched_anchors"), f"node {index} matched_anchors"),
+            "score": finite_number(node.get("score"), f"node {index} score"),
+        }
+
+    threads = {}
+    thread_ids = set()
+    for index, thread in enumerate(graph["threads"], 1):
+        if not isinstance(thread, dict):
+            raise ValueError(f"thread {index} must be an object")
+        ident = valid_string(thread.get("id"), f"thread {index} id")
+        source = valid_string(thread.get("source_node"), f"thread {index} source")
+        target = valid_string(thread.get("target_node"), f"thread {index} target")
+        if ident in thread_ids:
+            raise ValueError(f"duplicate thread ID {ident!r}")
+        if source not in id_locations or target not in id_locations or source == target:
+            raise ValueError(f"thread {index} has missing or identical endpoints")
+        pair = tuple(sorted((id_locations[source], id_locations[target])))
+        if pair in threads:
+            raise ValueError(f"duplicate thread endpoints {pair!r}")
+        via = thread.get("via")
+        if via not in ("seed", "anchor"):
+            raise ValueError(f"thread {index} has invalid via type")
+        strength = finite_number(thread.get("strength"), f"thread {index} strength")
+        if not 0 <= strength <= 1:
+            raise ValueError(f"thread {index} strength must be between 0 and 1")
+        threads[pair] = {
+            "via": via,
+            "strength": strength,
+            "evidence": valid_ids(thread.get("evidence"), f"thread {index} evidence"),
+        }
+        thread_ids.add(ident)
+    return nodes, threads
+
+
+def diff_table(before, after, field):
+    previous, current = set(before), set(after)
+    return {
+        "added": [{field: key, "value": after[key]} for key in sorted(current - previous)],
+        "removed": [{field: key, "value": before[key]} for key in sorted(previous - current)],
+        "changed": [{field: key, "before": before[key], "after": after[key]}
+                    for key in sorted(previous & current) if before[key] != after[key]],
+    }
+
+
+def compare(before, after):
+    nodes = diff_table(before[0], after[0], "location")
+    threads = diff_table(before[1], after[1], "locations")
+    for group in ("added", "removed", "changed"):
+        for item in threads[group]:
+            item["locations"] = list(item["locations"])
+    return {
+        "schema": "spiral_garden_diff_v1",
+        "nodes": nodes,
+        "threads": threads,
+        "counts": {
+            "nodes": {group: len(nodes[group]) for group in ("added", "removed", "changed")},
+            "threads": {group: len(threads[group]) for group in ("added", "removed", "changed")},
+        },
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("before", type=Path, help="Earlier saved Spiral Garden graph")
+    parser.add_argument("after", type=Path, help="Later saved Spiral Garden graph")
+    args = parser.parse_args()
+    try:
+        result = compare(load_graph(args.before), load_graph(args.after))
+    except ValueError as exc:
+        parser.error(str(exc))
+    print(json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False))
+
+
+if __name__ == "__main__":
+    main()
