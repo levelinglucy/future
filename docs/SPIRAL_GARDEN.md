@@ -34,6 +34,10 @@ literal match terms. IDs must also be distinct across seeds and anchors so
 thread evidence remains unambiguous. Scores and weights must be finite
 numbers (not booleans), and a single motif's contribution must not overflow.
 Duplicate JSON keys and nonstandard `NaN`/`Infinity` tokens are refused.
+Registry IDs and literal match terms must also be representable in UTF-8:
+JSON-escaped unpaired surrogate code points are refused *before scanning*
+rather than silently becoming impossible matches in a strict UTF-8 corpus.
+Ordinary Unicode, including emoji, remains valid; there is no normalization.
 If several valid matched contributions overflow the combined score, the
 builder refuses the graph rather than writing misleading nonstandard JSON.
 These checks do not assign semantic validity to the supplied motifs or weights.
@@ -71,19 +75,26 @@ significant memory; there is no artificial result truncation.
 
 **Goal:** publish faithful, complete graph evidence from explicitly selected
 local text files, without overwriting source notes or earlier graphs.
-**Integration:** the literal-newline fidelity correction is tracked in
-[PR #7](https://github.com/levelinglucy/future/pull/7);
-strict corpus-read validation is recorded in
-[PR #6](https://github.com/levelinglucy/future/pull/6);
-[registry-validation PR #5](https://github.com/levelinglucy/future/pull/5)
-and [complete-publication PR #4](https://github.com/levelinglucy/future/pull/4)
-are merged predecessors. **Validation:** see the implementation PR checks;
+**Integration and validation:** [PR #9](https://github.com/levelinglucy/future/pull/9)
+tracks the registry UTF-8 preflight and its revision-specific test evidence;
+[PR #8](https://github.com/levelinglucy/future/pull/8) is the merged
+shared-motif thread-indexing predecessor. Earlier
+[PR #7](https://github.com/levelinglucy/future/pull/7),
+[PR #6](https://github.com/levelinglucy/future/pull/6),
+[PR #5](https://github.com/levelinglucy/future/pull/5), and
+[PR #4](https://github.com/levelinglucy/future/pull/4) preserve literal
+newlines, strict corpus reads, registry validation and complete publication.
+See the exact implementation PR checks;
 never treat a successful source scan as proof of power-loss durability.
 **Release:** unreleased; no stable tag. **Next:** verify candidate-revision
 checks on supported CPython versions, then consider bounded resource use only
 with actual scale evidence.
 
-**Unreleased changes:** index thread candidates by shared motif rather than
+**Unreleased changes:** reject ill-formed Unicode registry IDs and match terms
+up front, avoiding misleading no-match graphs from impossible UTF-8 motifs
+without rejecting valid emoji or changing literal matching.
+
+Earlier: index thread candidates by shared motif rather than
 quadratically comparing unrelated files; preserve the existing graph schema,
 thread identities, ordering, evidence and scoring. Sparse large scans become
 more practical, but dense graph output remains potentially quadratic.
