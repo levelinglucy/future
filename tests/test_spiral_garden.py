@@ -443,9 +443,9 @@ class SpiralGardenSourceIntegrityTests(unittest.TestCase):
 
     def test_file_read_error_does_not_silently_drop_evidence(self):
         builder = SpiralGardenPublicationTests.builder()
-        with mock.patch.object(Path, "read_text", side_effect=PermissionError("test denial")):
+        with mock.patch.object(Path, "open", side_effect=PermissionError("test denial")):
             with self.assertRaisesRegex(ValueError, "could not read"):
-                builder.read_text_file(Path("unreadable.txt"))
+                list(builder.iter_text_chunks(Path("unreadable.txt")))
 
     def test_directory_walk_error_does_not_silently_omit_subtree(self):
         builder = SpiralGardenPublicationTests.builder()
@@ -457,6 +457,93 @@ class SpiralGardenSourceIntegrityTests(unittest.TestCase):
         with mock.patch.object(builder.os, "walk", side_effect=unreadable_walk):
             with self.assertRaisesRegex(ValueError, "could not scan"):
                 builder.scan_directory(Path("unused"), [], [])
+
+
+
+class SpiralGardenStreamingTests(unittest.TestCase):
+    """Bound working memory without losing literal or strict-UTF8 evidence."""
+
+    def test_build_node_never_requests_an_unbounded_text_read(self):
+        builder = SpiralGardenPublicationTests.builder()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "long.txt"
+            source.write_text("x" * (150000) + "boop", encoding="utf-8")
+            original_open = Path.open
+
+            class BoundedStream:
+                def __init__(self, stream):
+                    self.stream = stream
+
+                def __enter__(self):
+                    self.stream.__enter__()
+                    return self
+
+                def __exit__(self, *args):
+                    return self.stream.__exit__(*args)
+
+                def read(self, size=-1):
+                    if size < 0 or size > 65536:
+                        raise AssertionError("unbounded source text read")
+                    return self.stream.read(size)
+
+            def guarded_open(path, *args, **kwargs):
+                opened = original_open(path, *args, **kwargs)
+                return BoundedStream(opened) if path == source else opened
+
+            seeds = [{"id": "beacon", "token": "boop",
+                      "stability_score": 2, "activation_weight": 1}]
+            with mock.patch.object(Path, "open", guarded_open):
+                node = builder.build_node(source, root, seeds, [])
+            self.assertEqual(node["matched_seeds"], ["beacon"])
+
+    def test_long_file_does_not_require_full_text_allocation(self):
+        import tracemalloc
+        builder = SpiralGardenPublicationTests.builder()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "long.txt"
+            source.write_bytes(b"x" * (4 * 1024 * 1024) + b"boop")
+            seeds = [{"id": "beacon", "token": "boop",
+                      "stability_score": 2, "activation_weight": 1}]
+            tracemalloc.start()
+            try:
+                node = builder.build_node(source, root, seeds, [])
+                _, peak = tracemalloc.get_traced_memory()
+            finally:
+                tracemalloc.stop()
+            self.assertEqual(node["matched_seeds"], ["beacon"])
+            self.assertLess(peak, 2 * 1024 * 1024, peak)
+
+    def test_chunk_boundaries_preserve_literal_newlines_and_unicode(self):
+        builder = SpiralGardenPublicationTests.builder()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "boundaries.txt"
+            source.write_bytes("xxa\r\nbzz🌱end".encode("utf-8"))
+            seeds = [
+                {"id": "crlf", "token": "a\r\nb",
+                 "stability_score": 1, "activation_weight": 1},
+                {"id": "emoji", "token": "🌱",
+                 "stability_score": 1, "activation_weight": 1},
+            ]
+            anchors = [{"id": "bridge", "phrase": "bzz🌱", "depth_score": 1}]
+            with mock.patch.object(builder, "TEXT_CHUNK_CHARS", 2, create=True):
+                node = builder.build_node(source, root, seeds, anchors)
+            self.assertEqual(node["matched_seeds"], ["crlf", "emoji"])
+            self.assertEqual(node["matched_anchors"], ["bridge"])
+            self.assertEqual(node["score"], 5)
+
+    def test_late_invalid_utf8_is_rejected_even_after_all_motifs_match(self):
+        builder = SpiralGardenPublicationTests.builder()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "late-corrupt.txt"
+            source.write_bytes(b"boop" + b"x" * 140000 + b"\xff")
+            seeds = [{"id": "beacon", "token": "boop",
+                      "stability_score": 1, "activation_weight": 1}]
+            with self.assertRaisesRegex(ValueError, "invalid UTF-8"):
+                builder.build_node(source, root, seeds, [])
 
 
 if __name__ == "__main__":
