@@ -103,16 +103,32 @@ def load_graph(path: Path):
         pair = tuple(sorted((id_locations[source], id_locations[target])))
         if pair in threads:
             raise ValueError(f"duplicate thread endpoints {pair!r}")
+        # A graph edge is derived entirely from motifs present at *both*
+        # endpoints. Otherwise malformed or invented evidence could enter a
+        # convincing-looking saved comparison without any actual shared match.
+        a, b = nodes[id_locations[source]], nodes[id_locations[target]]
+        shared_seeds = sorted(set(a["matched_seeds"]) & set(b["matched_seeds"]))
+        shared_anchors = sorted(set(a["matched_anchors"]) & set(b["matched_anchors"]))
+        expected_evidence = shared_anchors + shared_seeds
+        if not expected_evidence:
+            raise ValueError(f"thread {index} has no shared endpoint motifs")
         via = thread.get("via")
-        if via not in ("seed", "anchor"):
-            raise ValueError(f"thread {index} has invalid via type")
+        expected_via = "anchor" if shared_anchors else "seed"
+        if via != expected_via:
+            raise ValueError(f"thread {index} via disagrees with shared motifs")
+        evidence = valid_ids(thread.get("evidence"), f"thread {index} evidence")
+        if evidence != expected_evidence:
+            raise ValueError(f"thread {index} evidence disagrees with shared motifs")
         strength = finite_number(thread.get("strength"), f"thread {index} strength")
-        if not 0 <= strength <= 1:
-            raise ValueError(f"thread {index} strength must be between 0 and 1")
+        expected_strength = round(min(
+            1.0, 0.25 + 0.12 * len(shared_seeds) + 0.2 * len(shared_anchors)
+        ), 3)
+        if strength != expected_strength:
+            raise ValueError(f"thread {index} strength disagrees with shared motifs")
         threads[pair] = {
             "via": via,
             "strength": strength,
-            "evidence": valid_ids(thread.get("evidence"), f"thread {index} evidence"),
+            "evidence": evidence,
         }
         thread_ids.add(ident)
     return nodes, threads
