@@ -114,8 +114,13 @@ changes. A path rename appears as removal plus addition, **not** a move.
 Both snapshots must represent comparable scan roots and registry definitions.
 Input with duplicate JSON keys, invalid compared fields, non-finite scores,
 duplicate IDs/locations or broken thread references is refused without
-printing a partial diff. This checks structural consistency, **not** whether
-the graph is authentic, chronologically accurate or causally meaningful.
+printing a partial diff. Each thread must additionally agree with both endpoints'
+shared motif identifiers: its evidence must include precisely the shared seeds
+and anchors in builder order, its connection type must prefer anchors when
+present, and its strength must match the builder's formula. A plausible-looking
+thread with no genuinely shared motif is rejected. This validates internal
+consistency with the v1 builder's rules, **not** whether the graph is authentic,
+chronologically accurate or causally meaningful.
 Both graphs are loaded into memory; very dense graph files can require
 substantial memory. Nothing is written except JSON to stdout (if you redirect
 it). Results contain filenames and motif identifiers: treat them as sensitive,
@@ -140,7 +145,7 @@ never treat a successful source scan as proof of power-loss durability.
 checks on supported CPython versions, then consider bounded resource use only
 with actual scale evidence.
 
-**Unreleased changes:** add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
+**Unreleased changes:** make the read-only comparison reject thread records whose claimed evidence, connection type or strength contradict their recorded endpoint motif matches; valid builder-produced graphs and the diff format remain unchanged. Earlier: add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
 while preserving exact literal matches, registry order, complete UTF-8 decoding
 and graph output schema; reduce per-file temporary allocation without claiming
 bounded total graph memory.
@@ -173,7 +178,7 @@ with private file permissions where the platform supports them.
 
 ## Verification
 
-Run `python -m unittest discover -s tests -p 'test_spiral_garden.py' -v`.
+Run `python -m unittest discover -s tests -p 'test_spiral_garden*.py' -v`.
 The tests construct disposable input directories and never scan the repository's
 historic personal archive. A GitHub Actions smoke workflow runs the same
 checks on Python 3.11 and 3.12.
