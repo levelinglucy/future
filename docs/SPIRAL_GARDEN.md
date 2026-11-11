@@ -118,7 +118,11 @@ printing a partial diff. Each thread must additionally agree with both endpoints
 shared motif identifiers: its evidence must include precisely the shared seeds
 and anchors in builder order, its connection type must prefer anchors when
 present, and its strength must match the builder's formula. A plausible-looking
-thread with no genuinely shared motif is rejected. This validates internal
+thread with no genuinely shared motif is rejected. Completeness is checked
+too: every pair of files sharing any recorded seed or anchor must have a
+corresponding thread. The comparator indexes shared motifs rather than
+checking all unrelated node pairs. Missing edges are invalid snapshot data,
+not legitimate graph changes. This validates internal
 consistency with the v1 builder's rules, **not** whether the graph is authentic,
 chronologically accurate or causally meaningful.
 Both graphs are loaded into memory; very dense graph files can require
@@ -145,7 +149,7 @@ never treat a successful source scan as proof of power-loss durability.
 checks on supported CPython versions, then consider bounded resource use only
 with actual scale evidence.
 
-**Unreleased changes:** make the read-only comparison reject thread records whose claimed evidence, connection type or strength contradict their recorded endpoint motif matches; valid builder-produced graphs and the diff format remain unchanged. Earlier: add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
+**Unreleased changes:** refuse incomplete graph thread inventories when endpoint matches imply missing links; the comparator detects omissions using a motif index without changing valid diffs or output publication. Earlier: make the read-only comparison reject thread records whose claimed evidence, connection type or strength contradict their recorded endpoint motif matches; valid builder-produced graphs and the diff format remain unchanged. Earlier: add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
 while preserving exact literal matches, registry order, complete UTF-8 decoding
 and graph output schema; reduce per-file temporary allocation without claiming
 bounded total graph memory.

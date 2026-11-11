@@ -67,9 +67,12 @@ class SnapshotDiffTests(unittest.TestCase):
         self.assertEqual(sum(diff["counts"]["threads"].values()), 0)
 
     def test_added_and_removed_edges_are_distinguished(self):
-        base = [node("a", "a", ["x"]), node("b", "b", ["x"]), node("c", "c", ["x"])]
-        old = graph(base, [edge("one", "a", "b")])
-        new = graph(base, [edge("two", "b", "c")])
+        # Each snapshot must contain every edge implied by its own motifs.
+        old = graph([node("a", "a", ["x"]), node("b", "b", ["x"]),
+                     node("c", "c", ["z"])], [edge("one", "a", "b")])
+        new = graph([node("a", "a", ["x"]), node("b", "b", ["y"]),
+                     node("c", "c", ["y"])],
+                    [edge("two", "b", "c", evidence=("y",))])
         diff = json.loads(self.run_cli(old, new).stdout)
         self.assertEqual(diff["counts"]["threads"], {"added": 1, "removed": 1, "changed": 0})
 
@@ -119,6 +122,55 @@ class SnapshotDiffTests(unittest.TestCase):
         proc = self.run_cli(valid, none)
         self.assertNotEqual(proc.returncode, 0)
         self.assertEqual(proc.stdout, "")
+
+    def test_omitted_only_required_thread_is_rejected(self):
+        # A snapshot with two files sharing x cannot honestly have no edge.
+        nodes = [node("a", "a.txt", ["x"]), node("b", "b.txt", ["x"])]
+        valid = graph(nodes, [edge("ab", "a", "b")])
+        self.assertEqual(self.run_cli(valid, valid).returncode, 0)
+        for before, after in ((graph(nodes), valid), (valid, graph(nodes))):
+            with self.subTest(before=before == valid):
+                proc = self.run_cli(before, after)
+                self.assertNotEqual(proc.returncode, 0)
+                self.assertEqual(proc.stdout, "")
+
+    def test_partial_edge_inventory_is_rejected(self):
+        # An invented clean diff must not hide the missing b-c connection.
+        nodes = [node("a", "a.txt", ["x"]), node("b", "b.txt", ["x", "y"]),
+                 node("c", "c.txt", ["y"])]
+        valid = graph(nodes, [
+            edge("ab", "a", "b", evidence=("x",)),
+            edge("bc", "b", "c", evidence=("y",)),
+        ])
+        partial = graph(nodes, [edge("ab", "a", "b", evidence=("x",))])
+        result = self.run_cli(valid, partial)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+
+    def test_sparse_graph_without_shared_motifs_remains_valid(self):
+        # Avoid requiring all-pairs edges for unrelated files.
+        sparse = graph([node("n" + str(i), "f" + str(i) + ".txt",
+                             ["different-" + str(i)])
+                        for i in range(30)])
+        result = self.run_cli(sparse, sparse)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["counts"]["threads"]["changed"], 0)
+
+    def test_missing_thread_refuses_saved_comparison_without_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            before, after, out = root / "before.json", root / "after.json", root / "diff.json"
+            nodes = [node("a", "a.txt", ["x"]), node("b", "b.txt", ["x"])]
+            before.write_text(json.dumps(graph(nodes, [edge("ab", "a", "b")])),
+                              encoding="utf-8")
+            after.write_text(json.dumps(graph(nodes)), encoding="utf-8")
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPT), str(before), str(after), "--out", str(out)],
+                capture_output=True, text=True, timeout=15,
+            )
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertFalse(out.exists())
+            self.assertEqual(sorted(root.iterdir()), [after, before])
 
     def test_unknown_schema_and_malformed_json_rejected(self):
         for invalid in ('[]', '{"schema":', '{}'):

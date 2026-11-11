@@ -131,6 +131,25 @@ def load_graph(path: Path):
             "evidence": evidence,
         }
         thread_ids.add(ident)
+    # A saved graph must also contain *every* connection implied by the
+    # matched motifs. Validating only present threads would let an omitted
+    # relationship masquerade as a legitimate deletion in the diff.
+    # Index motifs so unrelated nodes are never paired or compared.
+    postings = {}
+    for location, node in nodes.items():
+        for kind, field in (("seed", "matched_seeds"), ("anchor", "matched_anchors")):
+            for motif in node[field]:
+                postings.setdefault((kind, motif), []).append(location)
+    for location, node in nodes.items():
+        candidates = set()
+        for kind, field in (("seed", "matched_seeds"), ("anchor", "matched_anchors")):
+            for motif in node[field]:
+                candidates.update(postings[(kind, motif)])
+        for other in candidates:
+            if location < other and (location, other) not in threads:
+                raise ValueError(
+                    f"missing thread for shared motifs between {location!r} and {other!r}"
+                )
     return nodes, threads
 
 
