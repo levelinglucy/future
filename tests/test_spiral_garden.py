@@ -443,9 +443,9 @@ class SpiralGardenSourceIntegrityTests(unittest.TestCase):
 
     def test_file_read_error_does_not_silently_drop_evidence(self):
         builder = SpiralGardenPublicationTests.builder()
-        with mock.patch.object(Path, "read_text", side_effect=PermissionError("test denial")):
+        with mock.patch.object(Path, "open", side_effect=PermissionError("test denial")):
             with self.assertRaisesRegex(ValueError, "could not read"):
-                builder.read_text_file(Path("unreadable.txt"))
+                list(builder.iter_text_chunks(Path("unreadable.txt")))
 
     def test_directory_walk_error_does_not_silently_omit_subtree(self):
         builder = SpiralGardenPublicationTests.builder()
