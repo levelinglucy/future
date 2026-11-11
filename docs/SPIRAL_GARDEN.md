@@ -100,6 +100,34 @@ Pythonista hard-link compatibility has **not** been verified. The demonstration
 tests software behaviour on contrived data, not the meaning or authenticity
 of real-world relationships.
 
+## Explore connections in one saved snapshot
+
+To inspect **why** a particular file is connected to other files in an
+already-built graph, without rescanning files or writing a new artifact:
+
+```sh
+python trace_spiral_garden.py snapshot.json --from "lantern.md"
+python trace_spiral_garden.py snapshot.json --from "lantern.md" --to "meadow.md"
+```
+
+The first command lists up to eight **direct recorded neighbors** in
+relative-path order, including the shared motif IDs, connection type and
+builder-derived strength. Use `--limit 20` to show more neighbors; the total
+count and number omitted are always disclosed. The second command finds one
+**fewest-hop** path through recorded connections, breaking equally short ties
+deterministically by relative-path order. It explicitly distinguishes no
+recorded route, a route to the same file (zero hops) and an unknown filename.
+It does not optimize by strength or infer causation.
+
+Use exact relative paths from the saved graph (including case). Filenames and
+motifs are JSON-quoted to escape newlines and other control characters.
+Like the comparator, the command strictly validates the complete v1 graph,
+including its required and justified connections, *before* printing anything.
+It never edits the graph, scanned data or registries. Both the full graph and
+its adjacency index must fit in memory; very dense graphs can be expensive.
+A path is a chain of literal common motif IDs, **not** proof of chronology,
+authenticity, meaning, transmission or relationship between people.
+
 ## Compare two saved graph snapshots
 
 Use separate filenames for two builder outputs. To compare their recorded
@@ -183,7 +211,7 @@ See the exact implementation PR checks;
 never treat a successful source scan as proof of power-loss durability.
 **Release:** unreleased; no stable tag. **Next:** gather real usability evidence and test any proposed extensions against observed needs.
 
-**Unreleased changes:** add a one-command, temporary synthetic corpus walkthrough exercising actual graph creation, exclusive saved output, strict comparison and readable reports. Earlier: add optional bounded, human-readable `--summary` output while retaining complete JSON comparison and exclusive `--out` saving. Earlier: refuse incomplete graph thread inventories when endpoint matches imply missing links; the comparator detects omissions using a motif index without changing valid diffs or output publication. Earlier: make the read-only comparison reject thread records whose claimed evidence, connection type or strength contradict their recorded endpoint motif matches; valid builder-produced graphs and the diff format remain unchanged. Earlier: add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
+**Unreleased changes:** add read-only per-file neighbor and shortest-hop graph exploration, with explicit shared motifs and no-path reporting; reuse strict snapshot validation. Earlier: add a one-command, temporary synthetic corpus walkthrough exercising actual graph creation, exclusive saved output, strict comparison and readable reports. Earlier: add optional bounded, human-readable `--summary` output while retaining complete JSON comparison and exclusive `--out` saving. Earlier: refuse incomplete graph thread inventories when endpoint matches imply missing links; the comparator detects omissions using a motif index without changing valid diffs or output publication. Earlier: make the read-only comparison reject thread records whose claimed evidence, connection type or strength contradict their recorded endpoint motif matches; valid builder-produced graphs and the diff format remain unchanged. Earlier: add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
 while preserving exact literal matches, registry order, complete UTF-8 decoding
 and graph output schema; reduce per-file temporary allocation without claiming
 bounded total graph memory.
