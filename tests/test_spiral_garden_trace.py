@@ -108,6 +108,54 @@ class TraceTests(unittest.TestCase):
         self.assertNotEqual(bad.returncode, 0)
         self.assertEqual(bad.stdout, "")
 
+    def test_list_exact_motif_ids_in_seeds_and_anchors(self):
+        nodes = {
+            "notes/one.md": {"matched_seeds": ["seed-1"], "matched_anchors": [], "score": 1},
+            "notes/two.md": {"matched_seeds": ["seed-10"], "matched_anchors": [], "score": 1},
+            "other.md": {"matched_seeds": [], "matched_anchors": ["anchor-1"], "score": 1},
+            "notes/three.md": {"matched_seeds": [], "matched_anchors": ["anchor-1"], "score": 1},
+        }
+        data = (nodes, {})
+        exact = trace.list_locations(data, motif="seed-1")
+        self.assertIn('1 of 4', exact)
+        self.assertIn('"notes/one.md"', exact)
+        self.assertNotIn('"notes/two.md"', exact)
+        self.assertIn('exact motif ID "seed-1"', exact)
+        both = trace.list_locations(data, contains="notes/", motif="anchor-1")
+        self.assertIn('1 of 4', both)
+        self.assertIn('"notes/three.md"', both)
+        self.assertNotIn('"other.md"', both)
+        self.assertIn("case-sensitive", both)
+        self.assertIn("exact motif ID", both)
+        missing = trace.list_locations(data, motif="Seed-1")
+        self.assertIn("0 of 4", missing)
+        self.assertIn("No recorded paths match", missing)
+        with self.assertRaises(ValueError):
+            trace.list_locations(data, motif="")
+
+    def test_cli_exact_motif_discovery_and_mode_errors(self):
+        data = {"schema": "spiral_garden_graph_v1", "nodes": [
+            {"id": "n1", "location": "notes/one.md", "score": 1,
+             "matched_seeds": ["seed-1"], "matched_anchors": []},
+            {"id": "n2", "location": "notes/two.md", "score": 1,
+             "matched_seeds": ["seed-10"], "matched_anchors": []},
+            {"id": "n3", "location": "other.md", "score": 1,
+             "matched_seeds": [], "matched_anchors": ["anchor-1"]},
+        ], "threads": []}
+        selected = self.run_cli(data, "--list", "--motif", "seed-1")
+        self.assertEqual(selected.returncode, 0, selected.stderr)
+        self.assertIn('"notes/one.md"', selected.stdout)
+        self.assertNotIn('"notes/two.md"', selected.stdout)
+        selected_anchor = self.run_cli(data, "--list", "--motif", "anchor-1")
+        self.assertEqual(selected_anchor.returncode, 0, selected_anchor.stderr)
+        self.assertIn('"other.md"', selected_anchor.stdout)
+        for bad_args in (("--from", "notes/one.md", "--motif", "seed-1"),
+                         ("--list", "--motif", "")):
+            with self.subTest(bad_args=bad_args):
+                bad = self.run_cli(data, *bad_args)
+                self.assertNotEqual(bad.returncode, 0)
+                self.assertEqual(bad.stdout, "")
+
     def run_cli(self, raw, *args):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "graph.json"
