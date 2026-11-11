@@ -69,6 +69,16 @@ def validate_registry(entries: Any, kind: str) -> list[dict[str, Any]]:
         phrase = item.get(term)
         if not isinstance(phrase, str) or not phrase.strip():
             raise ValueError(f"{label} needs a nonempty string {term}")
+        # JSON permits escaped lone surrogates, but strict UTF-8 input files
+        # cannot contain them. Refuse impossible motifs before scanning rather
+        # than publishing a misleading empty match report.
+        for field_name, text_value in (("id", identifier), (term, phrase)):
+            try:
+                text_value.encode("utf-8")
+            except UnicodeEncodeError as exc:
+                raise ValueError(
+                    f"{label} {field_name} must be UTF-8 representable"
+                ) from exc
         for name in weights:
             if not finite_number(item.get(name)):
                 raise ValueError(f"{label} needs finite numeric {name}")
