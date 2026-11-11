@@ -89,6 +89,22 @@ motifs and graph connections without rescanning either corpus:
 python compare_spiral_gardens.py before.json after.json --out comparison.json
 ```
 
+For a compact, phone-readable **read-only** overview, use:
+
+```sh
+python compare_spiral_gardens.py before.json after.json --summary
+```
+
+This prints added, removed and changed node/connection counts, followed by up to
+eight quoted paths or path-pairs per change category. Newlines and other control
+characters in filenames are escaped, so they cannot impersonate extra report
+lines. Longer lists show the number omitted; use the default JSON mode or
+`--out` to inspect **every** change. An empty comparison reports no recorded
+changes. The `--summary` switch prints to stdout only and cannot be combined
+with `--out`, which always saves machine-readable JSON. Like JSON mode, summary
+requires both complete, internally consistent input snapshots. It does not
+verify chronology or authenticity and may include sensitive filenames.
+
 Use `--out` to publish a **complete comparison to a new filename only**.
 It stages private UTF-8 JSON alongside the destination, flushes and fsyncs
 the file, then creates the final name exclusively using a hard link.
@@ -149,7 +165,7 @@ never treat a successful source scan as proof of power-loss durability.
 checks on supported CPython versions, then consider bounded resource use only
 with actual scale evidence.
 
-**Unreleased changes:** refuse incomplete graph thread inventories when endpoint matches imply missing links; the comparator detects omissions using a motif index without changing valid diffs or output publication. Earlier: make the read-only comparison reject thread records whose claimed evidence, connection type or strength contradict their recorded endpoint motif matches; valid builder-produced graphs and the diff format remain unchanged. Earlier: add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
+**Unreleased changes:** add optional bounded, human-readable `--summary` output while retaining complete JSON comparison and exclusive `--out` saving. Earlier: refuse incomplete graph thread inventories when endpoint matches imply missing links; the comparator detects omissions using a motif index without changing valid diffs or output publication. Earlier: make the read-only comparison reject thread records whose claimed evidence, connection type or strength contradict their recorded endpoint motif matches; valid builder-produced graphs and the diff format remain unchanged. Earlier: add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
 while preserving exact literal matches, registry order, complete UTF-8 decoding
 and graph output schema; reduce per-file temporary allocation without claiming
 bounded total graph memory.

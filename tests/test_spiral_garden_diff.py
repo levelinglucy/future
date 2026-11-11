@@ -24,13 +24,13 @@ def graph(nodes=(), edges=()):
 
 
 class SnapshotDiffTests(unittest.TestCase):
-    def run_cli(self, old, new):
+    def run_cli(self, old, new, *extra):
         with tempfile.TemporaryDirectory() as directory:
             a, b = Path(directory) / "old.json", Path(directory) / "new.json"
             for path, data in ((a, old), (b, new)):
                 path.write_text(data if isinstance(data, str) else json.dumps(data),
                                 encoding="utf-8")
-            return subprocess.run([sys.executable, str(SCRIPT), str(a), str(b)],
+            return subprocess.run([sys.executable, str(SCRIPT), str(a), str(b), *extra],
                                   capture_output=True, text=True, timeout=15)
 
     def test_equal_graphs_report_no_changes(self):
@@ -225,6 +225,64 @@ class SnapshotDiffTests(unittest.TestCase):
                     comparator.write_diff_exclusive(output, report)
             self.assertFalse(output.exists())
             self.assertEqual(list(root.iterdir()), [])
+
+
+    def test_summary_readable_counts_and_paths_without_changing_json_default(self):
+        older = graph([node("a", "a.txt", ["x"]), node("b", "b.txt", ["x"]),
+                       node("old", "old.txt", ["z"])],
+                      [edge("ab", "a", "b")])
+        newer = graph([node("a2", "a.txt", ["x"], ["🌱"], 4),
+                       node("b2", "b.txt", ["x"], ["🌱"], 4),
+                       node("new", "new\nline.txt", ["z"])],
+                      [edge("ab2", "a2", "b2", "anchor", 0.57, ("🌱", "x"))])
+        report = self.run_cli(older, newer, "--summary")
+        self.assertEqual(report.returncode, 0, report.stderr)
+        self.assertIn("Nodes: +1 added, -1 removed, ~2 changed", report.stdout)
+        self.assertIn("Threads: +0 added, -0 removed, ~1 changed", report.stdout)
+        self.assertIn('  + "new\\nline.txt"', report.stdout)
+        self.assertIn('  - "old.txt"', report.stdout)
+        self.assertIn('  ~ "a.txt"', report.stdout)
+        self.assertIn('  ~ "a.txt" <-> "b.txt"', report.stdout)
+        self.assertNotIn("new\nline.txt", report.stdout)  # no forged terminal line
+        default = self.run_cli(older, newer)
+        self.assertEqual(default.returncode, 0, default.stderr)
+        self.assertEqual(json.loads(default.stdout)["counts"]["nodes"]["changed"], 2)
+
+    def test_summary_no_changes_and_bounded_preview(self):
+        import compare_spiral_gardens as comparator
+        unchanged = self.run_cli(graph(), graph(), "--summary")
+        self.assertEqual(unchanged.returncode, 0, unchanged.stderr)
+        self.assertIn("No recorded changes.", unchanged.stdout)
+        later_nodes = {
+            f"f{i}.txt": {"matched_seeds": ["x"], "matched_anchors": [], "score": 1}
+            for i in range(5)
+        }
+        text = comparator.render_summary(
+            comparator.compare(({}, {}), (later_nodes, {})), limit=2
+        )
+        self.assertIn("Nodes: +5 added", text)
+        self.assertIn('  + "f0.txt"', text)
+        self.assertIn('  + "f1.txt"', text)
+        self.assertNotIn('  + "f2.txt"', text)
+        self.assertIn("... 3 more", text)
+
+    def test_summary_rejects_bad_input_and_incompatible_saved_mode(self):
+        good, invalid = graph(), '{"schema":"spiral_garden_graph_v1","nodes":'
+        bad = self.run_cli(good, invalid, "--summary")
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertEqual(bad.stdout, "")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            before, after, output = root / "a.json", root / "b.json", root / "report.txt"
+            before.write_text(json.dumps(good), encoding="utf-8")
+            after.write_text(json.dumps(good), encoding="utf-8")
+            rejected = subprocess.run(
+                [sys.executable, str(SCRIPT), str(before), str(after), "--summary",
+                 "--out", str(output)], capture_output=True, text=True, timeout=15
+            )
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, "")
+            self.assertFalse(output.exists())
 
 if __name__ == "__main__":
     unittest.main()

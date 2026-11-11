@@ -181,6 +181,49 @@ def compare(before, after):
 
 
 
+
+def render_summary(report: dict[str, Any], limit: int = 8) -> str:
+    """Give a bounded, human-readable view of a fully validated comparison.
+
+    Paths are JSON-quoted so newlines and control characters in filenames
+    cannot impersonate extra report lines. The full JSON remains available
+    through the existing output mode.
+    """
+    if limit < 1:
+        raise ValueError("summary preview limit must be positive")
+    counts = report["counts"]
+    lines = [
+        "Spiral Garden snapshot comparison",
+        "Nodes: +{added} added, -{removed} removed, ~{changed} changed".format(
+            **counts["nodes"]
+        ),
+        "Threads: +{added} added, -{removed} removed, ~{changed} changed".format(
+            **counts["threads"]
+        ),
+    ]
+    if all(count == 0 for family in counts.values() for count in family.values()):
+        return "\n".join(lines + ["No recorded changes."])
+    for kind in ("nodes", "threads"):
+        for category, marker in (("added", "+"), ("removed", "-"), ("changed", "~")):
+            items = report[kind][category]
+            if not items:
+                continue
+            lines.append("")
+            lines.append(f"{kind.title()} {category} ({len(items)}):")
+            for item in items[:limit]:
+                if kind == "nodes":
+                    label = json.dumps(item["location"], ensure_ascii=False)
+                else:
+                    first, second = item["locations"]
+                    label = (json.dumps(first, ensure_ascii=False) + " <-> " +
+                             json.dumps(second, ensure_ascii=False))
+                lines.append(f"  {marker} {label}")
+            omitted = len(items) - limit
+            if omitted > 0:
+                lines.append(f"  ... {omitted} more")
+    return "\n".join(lines)
+
+
 def write_diff_exclusive(out_path: Path, report: dict[str, Any]) -> None:
     """Save a complete comparison only under a previously absent filename.
 
@@ -215,11 +258,17 @@ def main():
     parser.add_argument("after", type=Path, help="Later saved Spiral Garden graph")
     parser.add_argument("--out", type=Path,
                         help="Exclusively save a complete JSON diff to a new path")
+    parser.add_argument("--summary", action="store_true",
+                        help="Print a compact, phone-readable change summary on stdout")
     args = parser.parse_args()
+    if args.summary and args.out is not None:
+        parser.error("--summary writes only to stdout; --out saves JSON only")
     try:
         result = compare(load_graph(args.before), load_graph(args.after))
         if args.out is not None:
             write_diff_exclusive(args.out, result)
+        elif args.summary:
+            print(render_summary(result))
         else:
             print(json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False))
     except FileExistsError:
