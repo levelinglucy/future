@@ -93,14 +93,22 @@ def sha1_short(text: str) -> str:
     return hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
 
 
-def read_text_file(path: Path) -> str | None:
-    if path.suffix.lower() not in TEXT_EXTENSIONS:
-        return None
+TEXT_CHUNK_CHARS = 64 * 1024
+
+
+def iter_text_chunks(path: Path):
+    """Read strict UTF-8 in bounded chunks, preserving literal line endings.
+
+    Continue decoding to EOF even if all searched motifs were seen: otherwise
+    a corrupt suffix could be silently omitted from an apparently valid scan.
+    """
     try:
-        # Literal motif comparison must preserve CRLF, CR and LF distinctions.
-        # Path.read_text() performs universal-newline translation by default.
         with path.open("r", encoding="utf-8", newline="") as stream:
-            return stream.read()
+            while True:
+                chunk = stream.read(TEXT_CHUNK_CHARS)
+                if not chunk:
+                    break
+                yield chunk
     except UnicodeError as exc:
         raise ValueError(f"invalid UTF-8 in scanned file {path}") from exc
     except OSError as exc:
@@ -108,13 +116,33 @@ def read_text_file(path: Path) -> str | None:
 
 
 def build_node(path: Path, root: Path, seeds: list[dict[str, Any]], anchors: list[dict[str, Any]]) -> dict[str, Any] | None:
-    text = read_text_file(path)
-    if text is None:
+    if path.suffix.lower() not in TEXT_EXTENSIONS:
         return None
 
-    matched_seeds = [s for s in seeds if s["token"] in text]
-    matched_anchors = [a for a in anchors if a["phrase"] in text]
+    # Keep only enough of the prior chunk to recognize a motif crossing one
+    # or more boundaries. The longest literal motif determines that overlap.
+    # An unusually long user-supplied motif itself still requires memory.
+    overlap = max(
+        [1] + [len(s["token"]) for s in seeds]
+        + [len(a["phrase"]) for a in anchors]
+    ) - 1
+    seed_hits: set[int] = set()
+    anchor_hits: set[int] = set()
+    tail = ""
+    for chunk in iter_text_chunks(path):
+        window = tail + chunk
+        for index, seed in enumerate(seeds):
+            if index not in seed_hits and seed["token"] in window:
+                seed_hits.add(index)
+        for index, anchor in enumerate(anchors):
+            if index not in anchor_hits and anchor["phrase"] in window:
+                anchor_hits.add(index)
+        tail = window[-overlap:] if overlap else ""
 
+    # Preserve registry order and graph contents, independent of discovery
+    # order or chunk size. No work on the output until full UTF-8 validation.
+    matched_seeds = [seed for i, seed in enumerate(seeds) if i in seed_hits]
+    matched_anchors = [anchor for i, anchor in enumerate(anchors) if i in anchor_hits]
     if not matched_seeds and not matched_anchors:
         return None
 
