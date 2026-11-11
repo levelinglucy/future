@@ -233,13 +233,13 @@ class SnapshotDiffTests(unittest.TestCase):
                       [edge("ab", "a", "b")])
         newer = graph([node("a2", "a.txt", ["x"], ["🌱"], 4),
                        node("b2", "b.txt", ["x"], ["🌱"], 4),
-                       node("new", "new\\nline.txt", ["z"])],
+                       node("new", "new\nline.txt", ["z"])],
                       [edge("ab2", "a2", "b2", "anchor", 0.57, ("🌱", "x"))])
         report = self.run_cli(older, newer, "--summary")
         self.assertEqual(report.returncode, 0, report.stderr)
         self.assertIn("Nodes: +1 added, -1 removed, ~2 changed", report.stdout)
         self.assertIn("Threads: +0 added, -0 removed, ~1 changed", report.stdout)
-        self.assertIn('  + "new\\\\nline.txt"', report.stdout)
+        self.assertIn('  + "new\\nline.txt"', report.stdout)
         self.assertIn('  - "old.txt"', report.stdout)
         self.assertIn('  ~ "a.txt"', report.stdout)
         self.assertIn('  ~ "a.txt" <-> "b.txt"', report.stdout)
