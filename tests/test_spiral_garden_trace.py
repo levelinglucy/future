@@ -59,6 +59,55 @@ class TraceTests(unittest.TestCase):
         self.assertIn('"line\\nbreak"', rendered)
         self.assertNotIn("first\nsecond", rendered)
 
+    def test_list_locations_is_sorted_bounded_and_reports_match_totals(self):
+        listing = trace.list_locations(graph(), limit=2)
+        self.assertIn("5 recorded matching-file locations", listing)
+        self.assertIn('"a.md"', listing)
+        self.assertIn('"b.md"', listing)
+        self.assertNotIn('"c.md"', listing)
+        self.assertIn("3 more", listing)
+        filtered = trace.list_locations(graph(), contains="isolated")
+        self.assertIn("1 of 5", filtered)
+        self.assertIn('"isolated.md"', filtered)
+        self.assertNotIn('"a.md"', filtered)
+        self.assertIn("case-sensitive", filtered)
+        empty = trace.list_locations(graph(), contains="NONEXISTENT")
+        self.assertIn("0 of 5", empty)
+        self.assertIn("No recorded paths match", empty)
+
+    def test_list_locations_escapes_path_controls_and_rejects_bad_limit(self):
+        unusual = "a" + chr(10) + "b.md"
+        nodes = {unusual: {}, "plain.md": {}}
+        listing = trace.list_locations((nodes, {}))
+        self.assertIn(json.dumps(unusual), listing)
+        self.assertNotIn(unusual, listing)
+        with self.assertRaises(ValueError):
+            trace.list_locations((nodes, {}), limit=0)
+
+    def test_cli_lists_exact_locations_without_scanning_and_rejects_bad_modes(self):
+        data = {"schema": "spiral_garden_graph_v1", "nodes": [
+            {"id": f"n{i}", "location": location, "score": 1,
+             "matched_seeds": [f"s{i}"], "matched_anchors": []}
+            for i, location in enumerate(("notes/a.md", "notes/b.md", "z.md"))
+        ], "threads": []}
+        proc = self.run_cli(data, "--list", "--contains", "notes/", "--limit", "1")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("2 of 3", proc.stdout)
+        self.assertIn('"notes/a.md"', proc.stdout)
+        self.assertNotIn('"notes/b.md"', proc.stdout)
+        self.assertIn("1 more", proc.stdout)
+        for args in (("--list", "--from", "z.md"),
+                     ("--list", "--to", "z.md"),
+                     ("--from", "z.md", "--contains", "notes/")):
+            with self.subTest(args=args):
+                bad = self.run_cli(data, *args)
+                self.assertNotEqual(bad.returncode, 0)
+                self.assertEqual(bad.stdout, "")
+        malformed = '{"schema":"spiral_garden_graph_v1","nodes":[],"nodes":[],"threads":[]}'
+        bad = self.run_cli(malformed, "--list")
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertEqual(bad.stdout, "")
+
     def run_cli(self, raw, *args):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "graph.json"

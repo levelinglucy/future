@@ -54,6 +54,33 @@ def render_edge(left, right, details):
             f"| shared motifs: {evidence}")
 
 
+def list_locations(graph, contains=None, limit=8):
+    """Show exact saved matching-file paths without scanning the source tree.
+
+    A graph contains only files matching at least one registered motif.
+    The filter is a literal, case-sensitive substring of the recorded path.
+    """
+    if limit < 1:
+        raise ValueError("--limit must be a positive integer")
+    nodes, _ = graph
+    matching = sorted(location for location in nodes
+                      if contains is None or contains in location)
+    if contains is None:
+        lines = [f"{len(nodes)} recorded matching-file locations in this graph"]
+    else:
+        lines = [f"Recorded paths matching case-sensitive substring {quoted(contains)}: "
+                 f"{len(matching)} of {len(nodes)}"]
+    for location in matching[:limit]:
+        lines.append("  " + quoted(location))
+    if len(matching) > limit:
+        lines.append(f"  ... {len(matching) - limit} more; increase --limit to inspect them")
+    if not matching:
+        lines.append("No recorded paths match the filter." if contains is not None
+                     else "No matching-file locations were recorded.")
+    lines.append("Only files with literal motif matches appear; other scanned files are absent.")
+    return "\n".join(lines)
+
+
 def describe(graph, origin, target=None, limit=8):
     """Describe direct neighbors or one shortest recorded route, never mutate."""
     nodes, threads = graph
@@ -90,18 +117,28 @@ def describe(graph, origin, target=None, limit=8):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("graph", type=Path, help="Saved graph built with build_spiral_garden.py")
-    parser.add_argument("--from", dest="origin", required=True,
-                        help="Exact recorded relative location to inspect")
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--from", dest="origin",
+                      help="Exact recorded relative location to inspect")
+    mode.add_argument("--list", action="store_true",
+                      help="List recorded matching-file paths before tracing")
     parser.add_argument("--to", dest="target", help="Optional destination for shortest-hop route")
-    parser.add_argument("--limit", type=int, default=8, help="Maximum neighbors listed (default: 8)")
+    parser.add_argument("--contains", help="Literal case-sensitive path substring for --list")
+    parser.add_argument("--limit", type=int, default=8,
+                        help="Maximum listed paths or neighbors (default: 8)")
     args = parser.parse_args()
     if args.limit < 1:
         parser.error("--limit must be a positive integer")
+    if args.list and args.target is not None:
+        parser.error("--to requires --from")
+    if not args.list and args.contains is not None:
+        parser.error("--contains requires --list")
     try:
-        # Reuse the comparator's strict v1 loader: no partial, contradictory or
-        # duplicate-key graph can be presented as an authoritative route.
+        # The same complete graph validation precedes either output mode.
         from compare_spiral_gardens import load_graph
-        report = describe(load_graph(args.graph), args.origin, args.target, args.limit)
+        graph = load_graph(args.graph)
+        report = (list_locations(graph, args.contains, args.limit) if args.list
+                  else describe(graph, args.origin, args.target, args.limit))
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
     print(report)
