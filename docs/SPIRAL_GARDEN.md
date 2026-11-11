@@ -102,6 +102,22 @@ of real-world relationships.
 
 ## Explore connections in one saved snapshot
 
+Before tracing a file, discover the exact paths present in the saved graph:
+
+```sh
+python trace_spiral_garden.py snapshot.json --list
+python trace_spiral_garden.py snapshot.json --list --contains "notes/" --limit 20
+```
+
+The list is sorted, defaults to eight quoted paths and reports totals and
+omitted entries. `--contains` filters by **literal, case-sensitive path
+substring**; it does not search file contents. Only files that matched at
+least one registered motif have graph nodes, so an absent path is not proof
+that the original corpus lacked that file. Listing uses the same strict v1
+graph validator as tracing and never rereads or modifies the source corpus.
+`--list` and `--from` are mutually exclusive; `--to` requires `--from`,
+and `--contains` requires `--list`.
+
 To inspect **why** a particular file is connected to other files in an
 already-built graph, without rescanning files or writing a new artifact:
 
@@ -211,7 +227,7 @@ See the exact implementation PR checks;
 never treat a successful source scan as proof of power-loss durability.
 **Release:** unreleased; no stable tag. **Next:** gather real usability evidence and test any proposed extensions against observed needs.
 
-**Unreleased changes:** add read-only per-file neighbor and shortest-hop graph exploration, with explicit shared motifs and no-path reporting; reuse strict snapshot validation. Earlier: add a one-command, temporary synthetic corpus walkthrough exercising actual graph creation, exclusive saved output, strict comparison and readable reports. Earlier: add optional bounded, human-readable `--summary` output while retaining complete JSON comparison and exclusive `--out` saving. Earlier: refuse incomplete graph thread inventories when endpoint matches imply missing links; the comparator detects omissions using a motif index without changing valid diffs or output publication. Earlier: make the read-only comparison reject thread records whose claimed evidence, connection type or strength contradict their recorded endpoint motif matches; valid builder-produced graphs and the diff format remain unchanged. Earlier: add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
+**Unreleased changes:** add bounded discovery of exact paths in saved graphs with optional literal substring filtering, letting readers obtain valid `--from` locations without opening raw JSON. Earlier: add read-only per-file neighbor and shortest-hop graph exploration, with explicit shared motifs and no-path reporting; reuse strict snapshot validation. Earlier: add a one-command, temporary synthetic corpus walkthrough exercising actual graph creation, exclusive saved output, strict comparison and readable reports. Earlier: add optional bounded, human-readable `--summary` output while retaining complete JSON comparison and exclusive `--out` saving. Earlier: refuse incomplete graph thread inventories when endpoint matches imply missing links; the comparator detects omissions using a motif index without changing valid diffs or output publication. Earlier: make the read-only comparison reject thread records whose claimed evidence, connection type or strength contradict their recorded endpoint motif matches; valid builder-produced graphs and the diff format remain unchanged. Earlier: add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
 while preserving exact literal matches, registry order, complete UTF-8 decoding
 and graph output schema; reduce per-file temporary allocation without claiming
 bounded total graph memory.
