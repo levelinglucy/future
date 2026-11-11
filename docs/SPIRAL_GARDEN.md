@@ -80,6 +80,26 @@ for sparse corpora while preserving graph IDs, evidence and thread order. Highly
 connected corpora can still generate quadratically many output threads and use
 significant memory; there is no artificial result truncation.
 
+## One-command disposable walkthrough
+
+From the repository root, run:
+
+```sh
+python examples/spiral_garden_demo.py
+```
+
+The walkthrough creates two **synthetic** text corpora in a temporary folder,
+scans both using the real builder, saves complete graph snapshots under
+separate names, reloads them through the strict comparator and saves a full
+comparison before printing its short summary. It checks the expected counts:
+one file added, one removed, one changed; two connections added and one
+changed. All demo files are removed on completion. No historical archive,
+personal notes, existing snapshots or network resources are accessed.
+It needs Python 3.10+ and a local filesystem permitting hard links; iPhone/
+Pythonista hard-link compatibility has **not** been verified. The demonstration
+tests software behaviour on contrived data, not the meaning or authenticity
+of real-world relationships.
+
 ## Compare two saved graph snapshots
 
 Use separate filenames for two builder outputs. To compare their recorded
@@ -161,11 +181,9 @@ shared-motif thread-indexing predecessor. Earlier
 newlines, strict corpus reads, registry validation and complete publication.
 See the exact implementation PR checks;
 never treat a successful source scan as proof of power-loss durability.
-**Release:** unreleased; no stable tag. **Next:** verify candidate-revision
-checks on supported CPython versions, then consider bounded resource use only
-with actual scale evidence.
+**Release:** unreleased; no stable tag. **Next:** gather real usability evidence and test any proposed extensions against observed needs.
 
-**Unreleased changes:** add optional bounded, human-readable `--summary` output while retaining complete JSON comparison and exclusive `--out` saving. Earlier: refuse incomplete graph thread inventories when endpoint matches imply missing links; the comparator detects omissions using a motif index without changing valid diffs or output publication. Earlier: make the read-only comparison reject thread records whose claimed evidence, connection type or strength contradict their recorded endpoint motif matches; valid builder-produced graphs and the diff format remain unchanged. Earlier: add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
+**Unreleased changes:** add a one-command, temporary synthetic corpus walkthrough exercising actual graph creation, exclusive saved output, strict comparison and readable reports. Earlier: add optional bounded, human-readable `--summary` output while retaining complete JSON comparison and exclusive `--out` saving. Earlier: refuse incomplete graph thread inventories when endpoint matches imply missing links; the comparator detects omissions using a motif index without changing valid diffs or output publication. Earlier: make the read-only comparison reject thread records whose claimed evidence, connection type or strength contradict their recorded endpoint motif matches; valid builder-produced graphs and the diff format remain unchanged. Earlier: add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
 while preserving exact literal matches, registry order, complete UTF-8 decoding
 and graph output schema; reduce per-file temporary allocation without claiming
 bounded total graph memory.
