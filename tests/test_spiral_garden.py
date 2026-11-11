@@ -316,6 +316,31 @@ class SpiralGardenRegistryValidationTests(unittest.TestCase):
                 self.exercise_registry(seeds)
 
 
+    def test_registry_terms_and_ids_require_utf8_representability(self):
+        # JSON can represent escaped lone surrogates, but the scanner reads
+        # strict UTF-8: such terms can never match and must not silently pass.
+        for kind, fields in (("seed", ("id", "token")),
+                             ("anchor", ("id", "phrase"))):
+            for field in fields:
+                with self.subTest(kind=kind, field=field):
+                    entry = ({"id": "motif", "token": "boop",
+                              "stability_score": 1, "activation_weight": 1}
+                             if kind == "seed" else
+                             {"id": "motif", "phrase": "boop", "depth_score": 1})
+                    entry[field] = "\ud800" if field == "id" else "a\udc00b"
+                    raw = json.dumps([entry])
+                    if kind == "seed":
+                        self.exercise_registry(raw)
+                    else:
+                        self.exercise_registry("[]", raw)
+
+    def test_registry_keeps_valid_non_bmp_unicode(self):
+        builder = SpiralGardenPublicationTests.builder()
+        entry = {"id": "sprout_🌱", "token": "🌱", "stability_score": 1,
+                 "activation_weight": 2}
+        self.assertEqual(builder.validate_registry([entry], "seed"), [entry])
+
+
 
 class SpiralGardenThreadIndexTests(unittest.TestCase):
     """Keep output identical while avoiding unrelated sparse pair comparisons."""
