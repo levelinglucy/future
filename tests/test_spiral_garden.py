@@ -339,6 +339,13 @@ class SpiralGardenRegistryValidationTests(unittest.TestCase):
         entry = {"id": "sprout_🌱", "token": "🌱", "stability_score": 1,
                  "activation_weight": 2}
         self.assertEqual(builder.validate_registry([entry], "seed"), [entry])
+        # A valid non-BMP motif must still match actual strict UTF-8 input.
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "sprout.txt"
+            source.write_text("here grows 🌱", encoding="utf-8")
+            node = builder.build_node(source, root, [entry], [])
+            self.assertEqual(node["matched_seeds"], ["sprout_🌱"])
 
 
 
