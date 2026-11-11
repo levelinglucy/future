@@ -76,10 +76,11 @@ class TraceTests(unittest.TestCase):
         self.assertIn("No recorded paths match", empty)
 
     def test_list_locations_escapes_path_controls_and_rejects_bad_limit(self):
-        nodes = {"a\\nb.md": {}, "plain.md": {}}
+        unusual = "a" + chr(10) + "b.md"
+        nodes = {unusual: {}, "plain.md": {}}
         listing = trace.list_locations((nodes, {}))
-        self.assertIn('"a\\\\nb.md"', listing)
-        self.assertNotIn("a\\nb.md", listing)
+        self.assertIn(json.dumps(unusual), listing)
+        self.assertNotIn(unusual, listing)
         with self.assertRaises(ValueError):
             trace.list_locations((nodes, {}), limit=0)
 
