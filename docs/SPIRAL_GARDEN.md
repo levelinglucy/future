@@ -80,6 +80,32 @@ for sparse corpora while preserving graph IDs, evidence and thread order. Highly
 connected corpora can still generate quadratically many output threads and use
 significant memory; there is no artificial result truncation.
 
+## Compare two saved graph snapshots
+
+Use separate filenames for two builder outputs. To compare their recorded
+motifs and graph connections without rescanning either corpus:
+
+```sh
+python compare_spiral_gardens.py before.json after.json > comparison.json
+```
+
+The read-only companion produces `spiral_garden_diff_v1` JSON with added,
+removed and changed nodes (matched seed/anchor IDs and scores), threads
+(type, strength and evidence), and totals. Nodes are compared by their
+recorded relative locations and edges by the unordered pair of endpoint
+locations. Reordered records and changed internal graph IDs alone are not
+changes. A path rename appears as removal plus addition, **not** a move.
+
+Both snapshots must represent comparable scan roots and registry definitions.
+Input with duplicate JSON keys, invalid compared fields, non-finite scores,
+duplicate IDs/locations or broken thread references is refused without
+printing a partial diff. This checks structural consistency, **not** whether
+the graph is authentic, chronologically accurate or causally meaningful.
+Both graphs are loaded into memory; very dense graph files can require
+substantial memory. Nothing is written except JSON to stdout (if you redirect
+it). Results contain filenames and motif identifiers: treat them as sensitive,
+keep them local unless reviewed and avoid sharing blindly.
+
 ## Development and change history
 
 **Goal:** publish faithful, complete graph evidence from explicitly selected
@@ -99,7 +125,7 @@ never treat a successful source scan as proof of power-loss durability.
 checks on supported CPython versions, then consider bounded resource use only
 with actual scale evidence.
 
-**Unreleased changes:** stream large eligible source files in bounded text chunks
+**Unreleased changes:** add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
 while preserving exact literal matches, registry order, complete UTF-8 decoding
 and graph output schema; reduce per-file temporary allocation without claiming
 bounded total graph memory.
