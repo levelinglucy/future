@@ -98,5 +98,52 @@ class SnapshotDiffTests(unittest.TestCase):
             self.assertEqual(proc.stdout, "")
 
 
+    def test_exclusive_output_publishes_once_and_preserves_existing_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            older, newer, output = (root / "before.json", root / "after.json", root / "diff.json")
+            older.write_text(json.dumps(graph([node("a", "a.txt", ["x"])])), encoding="utf-8")
+            newer.write_text(json.dumps(graph([node("b", "b.txt", ["x"])])), encoding="utf-8")
+            command = [sys.executable, str(SCRIPT), str(older), str(newer), "--out", str(output)]
+            first = subprocess.run(command, capture_output=True, text=True, timeout=15)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertEqual(first.stdout, "")
+            diff = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(diff["counts"]["nodes"], {"added": 1, "removed": 1, "changed": 0})
+            saved = output.read_bytes()
+            second = subprocess.run(command, capture_output=True, text=True, timeout=15)
+            self.assertNotEqual(second.returncode, 0)
+            self.assertEqual(second.stdout, "")
+            self.assertEqual(output.read_bytes(), saved)
+            self.assertEqual(sorted(p.name for p in root.iterdir()),
+                             ["after.json", "before.json", "diff.json"])
+
+    def test_exclusive_output_never_publishes_invalid_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            older, newer, output = root / "before.json", root / "after.json", root / "diff.json"
+            older.write_text(json.dumps(graph()), encoding="utf-8")
+            newer.write_text('{"schema":"spiral_garden_graph_v1","nodes":', encoding="utf-8")
+            failed = subprocess.run([sys.executable, str(SCRIPT), str(older), str(newer),
+                                     "--out", str(output)], capture_output=True, text=True, timeout=15)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertEqual(failed.stdout, "")
+            self.assertFalse(output.exists())
+            self.assertEqual(sorted(p.name for p in root.iterdir()), ["after.json", "before.json"])
+
+    def test_exclusive_output_publication_failure_cleans_staging(self):
+        import compare_spiral_gardens as comparator
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "diff.json"
+            report = comparator.compare(({}, {}), ({}, {}))
+            with mock.patch.object(comparator.os, "link", side_effect=OSError("unsupported")):
+                with self.assertRaises(OSError):
+                    comparator.write_diff_exclusive(output, report)
+            self.assertFalse(output.exists())
+            self.assertEqual(list(root.iterdir()), [])
+
 if __name__ == "__main__":
     unittest.main()

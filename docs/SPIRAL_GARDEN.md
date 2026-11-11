@@ -86,8 +86,23 @@ Use separate filenames for two builder outputs. To compare their recorded
 motifs and graph connections without rescanning either corpus:
 
 ```sh
-python compare_spiral_gardens.py before.json after.json > comparison.json
+python compare_spiral_gardens.py before.json after.json --out comparison.json
 ```
+
+Use `--out` to publish a **complete comparison to a new filename only**.
+It stages private UTF-8 JSON alongside the destination, flushes and fsyncs
+the file, then creates the final name exclusively using a hard link.
+Existing files and symlinks are never replaced; malformed inputs do not
+create an output report. On filesystems that do not support hard links,
+publication fails safely without falling back to an incomplete copy.
+A killed process can leave a hidden `.spiral-diff-*.tmp` staging file;
+review it before removing it. This is not a power-loss durability guarantee,
+race-free input snapshot or iPhone/Pythonista compatibility claim.
+
+For interactive inspection, omit `--out` to print JSON on stdout. Ordinary
+shell redirection, e.g. `> comparison.json`, **truncates an existing
+destination before this program can validate the inputs**. Only use shell
+redirection if that overwrite behaviour is deliberate.
 
 The read-only companion produces `spiral_garden_diff_v1` JSON with added,
 removed and changed nodes (matched seed/anchor IDs and scores), threads
@@ -125,7 +140,7 @@ never treat a successful source scan as proof of power-loss durability.
 checks on supported CPython versions, then consider bounded resource use only
 with actual scale evidence.
 
-**Unreleased changes:** add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
+**Unreleased changes:** add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
 while preserving exact literal matches, registry order, complete UTF-8 decoding
 and graph output schema; reduce per-file temporary allocation without claiming
 bounded total graph memory.

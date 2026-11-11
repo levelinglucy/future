@@ -9,6 +9,8 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -143,16 +145,52 @@ def compare(before, after):
     }
 
 
+
+def write_diff_exclusive(out_path: Path, report: dict[str, Any]) -> None:
+    """Save a complete comparison only under a previously absent filename.
+
+    A private same-directory staging file is fsynced, then published using
+    exclusive hard-link creation. Do not fall back to a partial destination
+    copy if linking is unsupported. This is not crash/power-loss certification.
+    """
+    if out_path.exists() or out_path.is_symlink():
+        raise FileExistsError(f"output already exists: {out_path}")
+
+    fd, staged_name = tempfile.mkstemp(
+        prefix=".spiral-diff-", suffix=".tmp", dir=out_path.parent
+    )
+    staged = Path(staged_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump(report, stream, indent=2, ensure_ascii=False, allow_nan=False)
+            stream.flush()
+            os.fsync(stream.fileno())
+        # The final path is created only if absent, including symlink paths.
+        os.link(staged, out_path)
+    finally:
+        try:
+            staged.unlink()
+        except FileNotFoundError:
+            pass
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("before", type=Path, help="Earlier saved Spiral Garden graph")
     parser.add_argument("after", type=Path, help="Later saved Spiral Garden graph")
+    parser.add_argument("--out", type=Path,
+                        help="Exclusively save a complete JSON diff to a new path")
     args = parser.parse_args()
     try:
         result = compare(load_graph(args.before), load_graph(args.after))
-    except ValueError as exc:
+        if args.out is not None:
+            write_diff_exclusive(args.out, result)
+        else:
+            print(json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False))
+    except FileExistsError:
+        parser.error("--out already exists; choose a new comparison filename")
+    except (ValueError, OSError) as exc:
         parser.error(str(exc))
-    print(json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False))
 
 
 if __name__ == "__main__":
