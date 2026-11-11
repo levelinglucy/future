@@ -9,6 +9,8 @@ on:
       - "anchor_registry.json"
       - "tests/test_spiral_garden.py"
       - "tests/test_spiral_garden_diff.py"
+      - "tests/test_spiral_garden_demo.py"
+      - "examples/spiral_garden_demo.py"
       - ".github/workflows/spiral-garden.yml"
   push:
     branches: [main]
@@ -34,6 +36,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Compile builder
-        run: python -m py_compile build_spiral_garden.py compare_spiral_gardens.py
+        run: python -m py_compile build_spiral_garden.py compare_spiral_gardens.py examples/spiral_garden_demo.py
       - name: Test isolated graph construction
         run: python -m unittest discover -s tests -p 'test_spiral_garden*.py' -v
+      - name: Run disposable graph walkthrough
+        run: python examples/spiral_garden_demo.py
