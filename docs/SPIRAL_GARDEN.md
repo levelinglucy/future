@@ -42,6 +42,15 @@ If several valid matched contributions overflow the combined score, the
 builder refuses the graph rather than writing misleading nonstandard JSON.
 These checks do not assign semantic validity to the supplied motifs or weights.
 
+Eligible source files are matched in bounded **64-Ki-character UTF-8 chunks**,
+retaining only a longest-motif overlap across chunk boundaries. Matching remains
+literal across chunk boundaries (including CRLF and emoji), and the entire file
+is decoded even after every motif has matched, so invalid UTF-8 near EOF still
+aborts the scan. This reduces temporary **source-text** memory for large files;
+very long user-provided motifs, registry definitions, accumulated graph nodes and
+dense graph threads may still consume substantial memory. It does not impose
+an arbitrary file-size limit or truncate evidence.
+
 Only files with selected text extensions are scanned. Eligible files must
 contain valid UTF-8 text: invalid bytes, failed reads and reported directory
 traversal errors now abort the scan **without publishing a graph**, instead of
@@ -90,7 +99,12 @@ never treat a successful source scan as proof of power-loss durability.
 checks on supported CPython versions, then consider bounded resource use only
 with actual scale evidence.
 
-**Unreleased changes:** reject ill-formed Unicode registry IDs and match terms
+**Unreleased changes:** stream large eligible source files in bounded text chunks
+while preserving exact literal matches, registry order, complete UTF-8 decoding
+and graph output schema; reduce per-file temporary allocation without claiming
+bounded total graph memory.
+
+Earlier: reject ill-formed Unicode registry IDs and match terms
 up front, avoiding misleading no-match graphs from impossible UTF-8 motifs
 without rejecting valid emoji or changing literal matching.
 
