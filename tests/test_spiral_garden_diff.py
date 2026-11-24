@@ -248,6 +248,26 @@ class SnapshotDiffTests(unittest.TestCase):
         self.assertEqual(default.returncode, 0, default.stderr)
         self.assertEqual(json.loads(default.stdout)["counts"]["nodes"]["changed"], 2)
 
+    def test_summary_unicode_line_separators_preserve_json_identity(self):
+        for sep in ("\u0085", "\u2028", "\u2029"):
+            with self.subTest(sep=repr(sep)):
+                location = "雪" + sep + "🌱.md"
+                quoted_path = f'"雪\\u{ord(sep):04x}🌱.md"'
+                newer = graph([node("a", location, ["x"]),
+                               node("b", "plain.md", ["x"])],
+                              [edge("ab", "a", "b")])
+                summary = self.run_cli(graph(), newer, "--summary")
+                self.assertEqual(summary.returncode, 0, summary.stderr)
+                self.assertNotIn(sep, summary.stdout)
+                self.assertEqual(summary.stdout.count(quoted_path), 2)
+                self.assertEqual(json.loads(quoted_path), location)
+                default = self.run_cli(graph(), newer)
+                self.assertEqual(default.returncode, 0, default.stderr)
+                report = json.loads(default.stdout)
+                self.assertIn(location, [x["location"] for x in report["nodes"]["added"]])
+                self.assertIn(location, report["threads"]["added"][0]["locations"])
+                self.assertIn(sep, default.stdout)  # JSON mode remains unchanged.
+
     def test_summary_no_changes_and_bounded_preview(self):
         import compare_spiral_gardens as comparator
         unchanged = self.run_cli(graph(), graph(), "--summary")
