@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import argparse
 from collections import deque
-import json
 from pathlib import Path
+
+from compare_spiral_gardens import load_graph, quoted
 
 
 def adjacency_for(nodes, threads):
@@ -40,11 +41,6 @@ def shortest_path(adjacency, start, target):
                 return list(reversed(route))
             queue.append(neighbor)
     return None
-
-
-def quoted(value):
-    """Escape control characters in untrusted paths and motif identifiers."""
-    return json.dumps(value, ensure_ascii=False)
 
 
 def render_edge(left, right, details):
@@ -152,7 +148,6 @@ def main():
         parser.error("--motif must be a nonempty exact identifier")
     try:
         # The same complete graph validation precedes either output mode.
-        from compare_spiral_gardens import load_graph
         graph = load_graph(args.graph)
         report = (list_locations(graph, args.contains, args.limit, args.motif) if args.list
                   else describe(graph, args.origin, args.target, args.limit))

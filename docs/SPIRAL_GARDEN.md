@@ -119,7 +119,7 @@ of the path, original source text, or ID. An unknown ID reports zero matching
 paths; combine `--motif` and `--contains` to intersect both filters. Either
 filter is optional, and `--limit` still controls only the displayed paths,
 not the total count. Paths and displayed filter values are JSON-quoted to
-prevent control characters from impersonating separate report lines.
+preserve logical report lines, including escaped U+0085, U+2028 and U+2029.
 Only files that matched at
 least one registered motif have graph nodes, so an absent path is not proof
 that the original corpus lacked that file. Listing uses the same strict v1
@@ -147,7 +147,10 @@ recorded route, a route to the same file (zero hops) and an unknown filename.
 It does not optimize by strength or infer causation.
 
 Use exact relative paths from the saved graph (including case). Filenames and
-motifs are JSON-quoted to escape newlines and other control characters.
+motifs are JSON-quoted to escape line boundaries (including Unicode NEL,
+LINE SEPARATOR and PARAGRAPH SEPARATOR). Ordinary Unicode remains literal;
+JSON decoding of a quoted label recovers its exact identity. This is not
+general terminal sanitization, bidi safety or a guarantee against visual wrapping.
 Like the comparator, the command strictly validates the complete v1 graph,
 including its required and justified connections, *before* printing anything.
 It never edits the graph, scanned data or registries. Both the full graph and
@@ -171,9 +174,9 @@ python compare_spiral_gardens.py before.json after.json --summary
 ```
 
 This prints added, removed and changed node/connection counts, followed by up to
-eight quoted paths or path-pairs per change category. Newlines and other control
-characters in filenames are escaped, so they cannot impersonate extra report
-lines. Longer lists show the number omitted; use the default JSON mode or
+eight quoted paths or path-pairs per change category. JSON quoting also escapes
+U+0085, U+2028 and U+2029 in previews, without changing machine-readable JSON
+output or graph identity. Longer lists show the number omitted; use the default JSON mode or
 `--out` to inspect **every** change. An empty comparison reports no recorded
 changes. The `--summary` switch prints to stdout only and cannot be combined
 with `--out`, which always saves machine-readable JSON. Like JSON mode, summary
@@ -225,7 +228,9 @@ keep them local unless reviewed and avoid sharing blindly.
 
 **Goal:** publish faithful, complete graph evidence from explicitly selected
 local text files, without overwriting source notes or earlier graphs.
-**Integration and validation:** [PR #9](https://github.com/levelinglucy/future/pull/9)
+**Integration and validation:** [PR #20](https://github.com/levelinglucy/future/pull/20)
+tracks the preview line-boundary correction and revision-specific validation;
+[PR #9](https://github.com/levelinglucy/future/pull/9)
 tracks the registry UTF-8 preflight and its revision-specific test evidence;
 [PR #8](https://github.com/levelinglucy/future/pull/8) is the merged
 shared-motif thread-indexing predecessor. Earlier
@@ -238,7 +243,9 @@ See the exact implementation PR checks;
 never treat a successful source scan as proof of power-loss durability.
 **Release:** unreleased; no stable tag. **Next:** gather real usability evidence and test any proposed extensions against observed needs.
 
-**Unreleased changes:** add optional exact recorded seed/anchor ID filtering for read-only path discovery, combinable with the existing literal path substring filter; graph validation, contents, and scanning stay unchanged. Earlier: add bounded discovery of exact paths in saved graphs with optional literal substring filtering, letting readers obtain valid `--from` locations without opening raw JSON. Earlier: add read-only per-file neighbor and shortest-hop graph exploration, with explicit shared motifs and no-path reporting; reuse strict snapshot validation. Earlier: add a one-command, temporary synthetic corpus walkthrough exercising actual graph creation, exclusive saved output, strict comparison and readable reports. Earlier: add optional bounded, human-readable `--summary` output while retaining complete JSON comparison and exclusive `--out` saving. Earlier: refuse incomplete graph thread inventories when endpoint matches imply missing links; the comparator detects omissions using a motif index without changing valid diffs or output publication. Earlier: make the read-only comparison reject thread records whose claimed evidence, connection type or strength contradict their recorded endpoint motif matches; valid builder-produced graphs and the diff format remain unchanged. Earlier: add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
+**Unreleased changes:** preserve logical preview lines by escaping Unicode NEL,
+LINE SEPARATOR and PARAGRAPH SEPARATOR in quoted labels in both read-only
+commands; exact matching and default comparison JSON stay unchanged. Earlier: add optional exact recorded seed/anchor ID filtering for read-only path discovery, combinable with the existing literal path substring filter; graph validation, contents, and scanning stay unchanged. Earlier: add bounded discovery of exact paths in saved graphs with optional literal substring filtering, letting readers obtain valid `--from` locations without opening raw JSON. Earlier: add read-only per-file neighbor and shortest-hop graph exploration, with explicit shared motifs and no-path reporting; reuse strict snapshot validation. Earlier: add a one-command, temporary synthetic corpus walkthrough exercising actual graph creation, exclusive saved output, strict comparison and readable reports. Earlier: add optional bounded, human-readable `--summary` output while retaining complete JSON comparison and exclusive `--out` saving. Earlier: refuse incomplete graph thread inventories when endpoint matches imply missing links; the comparator detects omissions using a motif index without changing valid diffs or output publication. Earlier: make the read-only comparison reject thread records whose claimed evidence, connection type or strength contradict their recorded endpoint motif matches; valid builder-produced graphs and the diff format remain unchanged. Earlier: add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
 while preserving exact literal matches, registry order, complete UTF-8 decoding
 and graph output schema; reduce per-file temporary allocation without claiming
 bounded total graph memory.

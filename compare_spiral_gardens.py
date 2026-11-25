@@ -182,12 +182,19 @@ def compare(before, after):
 
 
 
+def quoted(value: str) -> str:
+    """JSON-quote a label, escaping all Python splitlines boundaries."""
+    return json.dumps(value, ensure_ascii=False).translate({
+        0x85: r"\u0085", 0x2028: r"\u2028", 0x2029: r"\u2029",
+    })
+
+
 def render_summary(report: dict[str, Any], limit: int = 8) -> str:
     """Give a bounded, human-readable view of a fully validated comparison.
 
-    Paths are JSON-quoted so newlines and control characters in filenames
-    cannot impersonate extra report lines. The full JSON remains available
-    through the existing output mode.
+    Paths are JSON-quoted, including Unicode line separators, to preserve
+    logical report lines. The full JSON remains available through the
+    existing output mode.
     """
     if limit < 1:
         raise ValueError("summary preview limit must be positive")
@@ -212,11 +219,11 @@ def render_summary(report: dict[str, Any], limit: int = 8) -> str:
             lines.append(f"{kind.title()} {category} ({len(items)}):")
             for item in items[:limit]:
                 if kind == "nodes":
-                    label = json.dumps(item["location"], ensure_ascii=False)
+                    label = quoted(item["location"])
                 else:
                     first, second = item["locations"]
-                    label = (json.dumps(first, ensure_ascii=False) + " <-> " +
-                             json.dumps(second, ensure_ascii=False))
+                    label = (quoted(first) + " <-> " +
+                             quoted(second))
                 lines.append(f"  {marker} {label}")
             omitted = len(items) - limit
             if omitted > 0:

@@ -186,6 +186,32 @@ class TraceTests(unittest.TestCase):
         self.assertEqual(proc2.returncode, 0, proc2.stderr)
         self.assertIn("No recorded path", proc2.stdout)
 
+    def test_cli_unicode_line_separators_in_paths_filters_and_motifs(self):
+        for sep in ("\u0085", "\u2028", "\u2029"):
+            location = "雪" + sep + "🌱.md"
+            motif = "seed" + sep + "motif"
+            quoted_path = f'"雪\\u{ord(sep):04x}🌱.md"'
+            quoted_motif = f'"seed\\u{ord(sep):04x}motif"'
+            data = {"schema": "spiral_garden_graph_v1", "nodes": [
+                {"id": "n1", "location": location, "score": 1,
+                 "matched_seeds": [motif], "matched_anchors": []},
+                {"id": "n2", "location": "plain.md", "score": 1,
+                 "matched_seeds": [motif], "matched_anchors": []}],
+                "threads": [{"id": "e1", "source_node": "n1",
+                             "target_node": "n2", "via": "seed",
+                             "evidence": [motif], "strength": 0.37}]}
+            for args in (("--list", "--contains", location, "--motif", motif),
+                         ("--from", location, "--to", "plain.md")):
+                with self.subTest(sep=repr(sep), mode=args[0]):
+                    proc = self.run_cli(data, *args)
+                    self.assertEqual(proc.returncode, 0, proc.stderr)
+                    self.assertNotIn(sep, proc.stdout)
+                    self.assertIn(quoted_path, proc.stdout)
+                    self.assertIn(quoted_motif, proc.stdout)
+                    self.assertEqual(json.loads(quoted_path), location)
+                    self.assertEqual(json.loads(quoted_motif), motif)
+                    self.assertEqual(len(proc.stdout.splitlines()), 3)
+
     def test_cli_rejects_contradictory_graph_without_partial_stdout(self):
         malformed = '{"schema":"spiral_garden_graph_v1","nodes":[],"nodes":[],"threads":[]}'
         proc = self.run_cli(malformed, "--from", "anything")
