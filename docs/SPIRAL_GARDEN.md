@@ -108,6 +108,7 @@ Before tracing a file, discover the exact paths present in the saved graph:
 python trace_spiral_garden.py snapshot.json --list
 python trace_spiral_garden.py snapshot.json --list --contains "notes/" --limit 20
 python trace_spiral_garden.py snapshot.json --list --motif "seed_example"
+python trace_spiral_garden.py snapshot.json --list --motif "seed_example" --motif-kind seed
 python trace_spiral_garden.py snapshot.json --list --motif "anchor_example" --contains "notes/"
 ```
 
@@ -116,7 +117,11 @@ omitted entries. `--contains` filters by **literal, case-sensitive path
 substring**; it does not search file contents. `--motif` instead selects the
 exact, case-sensitive ID of a recorded seed **or** anchor, never a substring
 of the path, original source text, or ID. An unknown ID reports zero matching
-paths; combine `--motif` and `--contains` to intersect both filters. Either
+paths. Without `--motif-kind`, both saved namespaces are searched (union).
+Use `--motif-kind seed` or `--motif-kind anchor` to select just one namespace;
+this also disambiguates overlapping IDs in internally valid older v1 graphs.
+It neither changes the saved graph nor relaxes the current builder rules.
+Combine `--motif` and `--contains` to intersect both filters. Either
 filter is optional, and `--limit` still controls only the displayed paths,
 not the total count. Paths and displayed filter values are JSON-quoted to
 preserve logical report lines, including escaped U+0085, U+2028 and U+2029.
@@ -126,7 +131,7 @@ that the original corpus lacked that file. Listing uses the same strict v1
 graph validator as tracing and never rereads or modifies the source corpus.
 `--list` and `--from` are mutually exclusive; `--to` requires `--from`,
 and both `--contains` and `--motif` require `--list`; an empty `--motif` is
-refused. Motif IDs come from the saved graph and are not rechecked against
+refused. `--motif-kind` requires both `--list` and `--motif`. Motif IDs come from the saved graph and are not rechecked against
 current registry files. This does not authenticate the saved graph.
 
 To inspect **why** a particular file is connected to other files in an
@@ -228,7 +233,9 @@ keep them local unless reviewed and avoid sharing blindly.
 
 **Goal:** publish faithful, complete graph evidence from explicitly selected
 local text files, without overwriting source notes or earlier graphs.
-**Integration and validation:** [PR #20](https://github.com/levelinglucy/future/pull/20)
+**Integration and validation:** [PR #21](https://github.com/levelinglucy/future/pull/21)
+tracks optional namespace selection and its revision-specific tests;
+[PR #20](https://github.com/levelinglucy/future/pull/20)
 tracks the preview line-boundary correction and revision-specific validation;
 [PR #9](https://github.com/levelinglucy/future/pull/9)
 tracks the registry UTF-8 preflight and its revision-specific test evidence;
@@ -243,7 +250,9 @@ See the exact implementation PR checks;
 never treat a successful source scan as proof of power-loss durability.
 **Release:** unreleased; no stable tag. **Next:** gather real usability evidence and test any proposed extensions against observed needs.
 
-**Unreleased changes:** preserve logical preview lines by escaping Unicode NEL,
+**Unreleased changes:** add optional typed saved motif selection, retaining the
+unqualified union and compatibility with internally valid historical v1 graphs.
+Earlier: preserve logical preview lines by escaping Unicode NEL,
 LINE SEPARATOR and PARAGRAPH SEPARATOR in quoted labels in both read-only
 commands; exact matching and default comparison JSON stay unchanged. Earlier: add optional exact recorded seed/anchor ID filtering for read-only path discovery, combinable with the existing literal path substring filter; graph validation, contents, and scanning stay unchanged. Earlier: add bounded discovery of exact paths in saved graphs with optional literal substring filtering, letting readers obtain valid `--from` locations without opening raw JSON. Earlier: add read-only per-file neighbor and shortest-hop graph exploration, with explicit shared motifs and no-path reporting; reuse strict snapshot validation. Earlier: add a one-command, temporary synthetic corpus walkthrough exercising actual graph creation, exclusive saved output, strict comparison and readable reports. Earlier: add optional bounded, human-readable `--summary` output while retaining complete JSON comparison and exclusive `--out` saving. Earlier: refuse incomplete graph thread inventories when endpoint matches imply missing links; the comparator detects omissions using a motif index without changing valid diffs or output publication. Earlier: make the read-only comparison reject thread records whose claimed evidence, connection type or strength contradict their recorded endpoint motif matches; valid builder-produced graphs and the diff format remain unchanged. Earlier: add an opt-in complete-only, exclusive `--out` mode for saved graph comparisons, avoiding accidental overwrite/truncation from shell redirection. The existing stdout behaviour is retained. Earlier: add a read-only graph-snapshot comparison command with path-based stable identities, malformed-input refusal and machine-readable change counts. Earlier: stream large eligible source files in bounded text chunks
 while preserving exact literal matches, registry order, complete UTF-8 decoding

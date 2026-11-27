@@ -156,6 +156,63 @@ class TraceTests(unittest.TestCase):
                 self.assertNotEqual(bad.returncode, 0)
                 self.assertEqual(bad.stdout, "")
 
+
+    def test_cli_legacy_cross_kind_motif_can_be_disambiguated(self):
+        # Older v1 builders allowed registry ID overlap. The typed graph
+        # can still be internally consistent: x is not shared across a and b.
+        data = {"schema": "spiral_garden_graph_v1", "nodes": [
+            {"id": "a", "location": "notes/a.md", "score": 1,
+             "matched_seeds": ["x"], "matched_anchors": []},
+            {"id": "b", "location": "notes/b.md", "score": 3,
+             "matched_seeds": [], "matched_anchors": ["x"]},
+            {"id": "c", "location": "other/c.md", "score": 4,
+             "matched_seeds": ["x"], "matched_anchors": ["x"]},
+        ], "threads": [
+            {"id": "ac", "source_node": "a", "target_node": "c",
+             "via": "seed", "evidence": ["x"], "strength": 0.37},
+            {"id": "bc", "source_node": "b", "target_node": "c",
+             "via": "anchor", "evidence": ["x"], "strength": 0.45},
+        ]}
+        union = self.run_cli(data, "--list", "--motif", "x")
+        self.assertEqual(union.returncode, 0, union.stderr)
+        self.assertIn("3 of 3", union.stdout)
+        # Keep legacy unqualified union behavior and permit explicit typing.
+        for kind, wanted, absent in (
+            ("seed", "notes/a.md", "notes/b.md"),
+            ("anchor", "notes/b.md", "notes/a.md"),
+        ):
+            with self.subTest(kind=kind):
+                result = self.run_cli(data, "--list", "--motif", "x",
+                                      "--motif-kind", kind)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("2 of 3", result.stdout)
+                self.assertIn(json.dumps(wanted), result.stdout)
+                self.assertIn('"other/c.md"', result.stdout)
+                self.assertNotIn(json.dumps(absent), result.stdout)
+                self.assertIn(f"exact {kind} ID", result.stdout)
+                intersection = self.run_cli(data, "--list", "--motif", "x",
+                                            "--motif-kind", kind, "--contains", "notes/")
+                self.assertEqual(intersection.returncode, 0, intersection.stderr)
+                self.assertIn("1 of 3", intersection.stdout)
+                self.assertIn(json.dumps(wanted), intersection.stdout)
+                self.assertNotIn('"other/c.md"', intersection.stdout)
+        missing = self.run_cli(data, "--list", "--motif", "X", "--motif-kind", "seed")
+        self.assertEqual(missing.returncode, 0, missing.stderr)
+        self.assertIn("0 of 3", missing.stdout)
+        no_route = self.run_cli(data, "--from", "notes/a.md", "--to", "notes/b.md")
+        self.assertEqual(no_route.returncode, 0, no_route.stderr)
+        self.assertIn("2 connection(s)", no_route.stdout)
+
+    def test_motif_kind_requires_list_and_exact_motif(self):
+        data = {"schema": "spiral_garden_graph_v1", "nodes": [], "threads": []}
+        for args in (("--list", "--motif-kind", "seed"),
+                     ("--from", "x", "--motif-kind", "anchor"),
+                     ("--list", "--motif", "x", "--motif-kind", "other")):
+            with self.subTest(args=args):
+                result = self.run_cli(data, *args)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+
     def run_cli(self, raw, *args):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "graph.json"

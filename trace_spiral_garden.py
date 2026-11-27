@@ -50,29 +50,35 @@ def render_edge(left, right, details):
             f"| shared motifs: {evidence}")
 
 
-def list_locations(graph, contains=None, limit=8, motif=None):
+def list_locations(graph, contains=None, limit=8, motif=None, motif_kind=None):
     """Show exact recorded paths, optionally filtering on paths and motif IDs.
 
     A graph contains only files matching at least one registered motif.
     The path filter is a literal, case-sensitive substring; the motif filter
-    is an exact, case-sensitive saved seed or anchor identifier.
+    is an exact, case-sensitive saved seed or anchor identifier. An optional
+    kind restricts it to the corresponding saved namespace.
     """
     if limit < 1:
         raise ValueError("--limit must be a positive integer")
     if motif == "":
         raise ValueError("--motif must be a nonempty exact identifier")
+    if motif_kind not in (None, "seed", "anchor"):
+        raise ValueError("--motif-kind must be seed or anchor")
+    if motif_kind is not None and motif is None:
+        raise ValueError("--motif-kind requires --motif")
     nodes, _ = graph
     matching = sorted(
         location for location, details in nodes.items()
         if (contains is None or contains in location)
-        and (motif is None or motif in details["matched_seeds"]
-             or motif in details["matched_anchors"])
+        and (motif is None
+             or (motif_kind != "anchor" and motif in details["matched_seeds"])
+             or (motif_kind != "seed" and motif in details["matched_anchors"]))
     )
     filters = []
     if contains is not None:
         filters.append(f"case-sensitive path substring {quoted(contains)}")
     if motif is not None:
-        filters.append(f"exact motif ID {quoted(motif)}")
+        filters.append(f"exact {motif_kind or 'motif'} ID {quoted(motif)}")
     if filters:
         lines = [f"Recorded paths matching {' and '.join(filters)}: "
                  f"{len(matching)} of {len(nodes)}"]
@@ -133,6 +139,8 @@ def main():
     parser.add_argument("--to", dest="target", help="Optional destination for shortest-hop route")
     parser.add_argument("--contains", help="Literal case-sensitive path substring for --list")
     parser.add_argument("--motif", help="Exact recorded seed or anchor ID for --list")
+    parser.add_argument("--motif-kind", choices=("seed", "anchor"),
+                        help="Restrict --motif to one saved namespace")
     parser.add_argument("--limit", type=int, default=8,
                         help="Maximum listed paths or neighbors (default: 8)")
     args = parser.parse_args()
@@ -144,12 +152,15 @@ def main():
         parser.error("--contains requires --list")
     if not args.list and args.motif is not None:
         parser.error("--motif requires --list")
+    if args.motif_kind is not None and (not args.list or args.motif is None):
+        parser.error("--motif-kind requires --list and --motif")
     if args.motif == "":
         parser.error("--motif must be a nonempty exact identifier")
     try:
         # The same complete graph validation precedes either output mode.
         graph = load_graph(args.graph)
-        report = (list_locations(graph, args.contains, args.limit, args.motif) if args.list
+        report = (list_locations(graph, args.contains, args.limit, args.motif,
+                                 args.motif_kind) if args.list
                   else describe(graph, args.origin, args.target, args.limit))
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
